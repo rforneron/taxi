@@ -126,23 +126,6 @@ Funciones principales:
 - Decodificación de bloques de control.
 - Recuperación de START, TERM e IDLE.
 
----
-
-## Organización del Directorio
-
-```text
-Rodri/
-│
-├── README.md
-│
-├── agents/
-│   └── Agentes y monitores reutilizables
-│
-└── tests/
-    └── Casos de prueba de auditoría
-```
-
----
 
 ## Objetivos de la Auditoría
 
@@ -152,11 +135,13 @@ Rodri/
 - Documentar interfaces.
 - Documentar flujo de datos.
 
+
 ### Señales
 
 - Construir matriz de señales.
 - Identificar origen y destino de cada señal.
 - Identificar señales de estado del receptor.
+
 
 ### Validación Funcional
 
@@ -165,6 +150,7 @@ Rodri/
 - Loss of Lock.
 - Lock Recovery.
 - BER Monitoring.
+
 
 ### Cumplimiento de Estándar
 
