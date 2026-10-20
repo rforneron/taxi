@@ -224,283 +224,40 @@ rx_status
 | xgmii_rxc | taxi_xgmii_baser_dec | Exterior |
 
 ---
+## Estrategia de Verificación
 
-## Estrategia de Validación
+La auditoría se implementará mediante componentes de verificación desarrollados en SystemVerilog.
 
-El objetivo de la auditoría no es únicamente comprender la arquitectura del PHY, sino también verificar su correcto funcionamiento y su conformidad con IEEE 802.3 Clause 49 mediante pruebas dirigidas y agentes reutilizables.
+Estos componentes tendrán como objetivo estimular interfaces, monitorear señales internas y verificar el cumplimiento funcional de los diferentes bloques que componen el PHY.
 
 La estrategia adoptada consiste en:
 
-1. Identificar las interfaces de cada bloque.
-2. Definir los casos de prueba necesarios.
-3. Implementar agentes reutilizables.
-4. Ejecutar los tests y registrar resultados.
-5. Analizar posibles desviaciones respecto al estándar.
+1. Comprender la arquitectura del bloque.
+2. Identificar las señales de entrada y salida.
+3. Definir los casos de prueba.
+4. Implementar agentes reutilizables.
+5. Ejecutar las pruebas.
+6. Analizar resultados y posibles desviaciones respecto al estándar.
 
 ---
 
-## Categorías de Pruebas
+## Agentes de Verificación
 
-### Integridad Funcional
+Los agentes son componentes reutilizables desarrollados en SystemVerilog que permiten generar estímulos, monitorear interfaces y observar el estado interno del PHY.
 
-Estas pruebas verifican el correcto transporte de información entre la interfaz XGMII de transmisión y la interfaz XGMII de recepción.
-
-#### TEST-F01 - Loopback Básico
-
-Objetivo:
-
-```text
-Verificar transmisión extremo a extremo.
-```
-
-Entradas:
-
-```text
-xgmii_txd
-xgmii_txc
-```
-
-Salidas verificadas:
-
-```text
-xgmii_rxd
-xgmii_rxc
-```
-
-Resultado esperado:
-
-```text
-TX == RX
-```
-
----
-
-#### TEST-F02 - Frame Mínima
-
-Objetivo:
-
-```text
-Validar el procesamiento de una trama Ethernet mínima.
-```
-
-Resultado esperado:
-
-```text
-Recepción correcta sin errores.
-```
-
----
-
-#### TEST-F03 - Frame Máxima
-
-Objetivo:
-
-```text
-Validar el procesamiento de una trama Ethernet máxima.
-```
-
-Resultado esperado:
-
-```text
-Recepción correcta sin errores.
-```
-
----
-
-### Block Lock
-
-Estas pruebas validan los mecanismos de sincronización del receptor.
-
-#### TEST-BL01 - Adquisición de Lock
-
-Señal monitoreada:
-
-```text
-rx_block_lock
-```
-
-Resultado esperado:
-
-```text
-0 → 1
-```
-
----
-
-#### TEST-BL02 - Pérdida de Lock
-
-Acción:
-
-```text
-Introducir errores o headers inválidos.
-```
-
-Resultado esperado:
-
-```text
-1 → 0
-```
-
----
-
-#### TEST-BL03 - Recuperación de Lock
-
-Acción:
-
-```text
-Restaurar el flujo correcto.
-```
-
-Resultado esperado:
-
-```text
-0 → 1
-```
-
----
-
-### BER Monitoring
-
-Estas pruebas verifican la detección y contabilización de errores.
-
-#### TEST-BER01 - Canal Limpio
-
-Señal monitoreada:
-
-```text
-rx_high_ber
-```
-
-Resultado esperado:
-
-```text
-rx_high_ber = 0
-```
-
----
-
-#### TEST-BER02 - High BER
-
-Acción:
-
-```text
-Inyectar errores de forma controlada.
-```
-
-Resultado esperado:
-
-```text
-rx_high_ber = 1
-```
-
----
-
-#### TEST-BER03 - Error Counter
-
-Señal monitoreada:
-
-```text
-rx_error_count
-```
-
-Resultado esperado:
-
-```text
-Incremento consistente con los errores inyectados.
-```
-
----
-
-### Cumplimiento IEEE 802.3 Clause 49
-
-Estas pruebas buscan verificar conformidad con el estándar.
-
-#### TEST-STD01 - Sync Headers
-
-Validar que únicamente aparezcan los headers:
-
-```text
-01
-10
-```
-
----
-
-#### TEST-STD02 - Start Block
-
-Verificar la codificación del bloque START.
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_enc
-```
-
----
-
-#### TEST-STD03 - Terminate Block
-
-Verificar la codificación del bloque TERM.
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_enc
-```
-
----
-
-#### TEST-STD04 - Decodificación
-
-Verificar la correcta reconstrucción de la interfaz XGMII.
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_dec
-```
-
----
-
-#### TEST-STD05 - Block Lock
-
-Verificar que el mecanismo de adquisición y pérdida de lock siga los criterios definidos por el estándar.
-
-Bloque analizado:
-
-```text
-taxi_eth_phy_10g_rx_frame_sync
-```
-
----
-
-#### TEST-STD06 - High BER
-
-Verificar que la detección de alta tasa de errores siga los criterios definidos por el estándar.
-
-Bloque analizado:
-
-```text
-taxi_eth_phy_10g_rx_ber_mon
-```
-
----
-
-## Agentes de Validación
-
-Los agentes constituyen componentes reutilizables destinados a estimular y monitorear las interfaces del PHY.
-
-### XGMII Agent
+### XGMII Driver
 
 Responsabilidades:
 
 ```text
 - Generar tráfico XGMII.
-- Construir tramas de prueba.
-- Inyectar patrones específicos.
+- Generar secuencias START.
+- Generar secuencias TERM.
+- Generar secuencias IDLE.
+- Generar tramas Ethernet de prueba.
 ```
 
-Interfaces:
+Interfaces utilizadas:
 
 ```text
 xgmii_txd
@@ -515,11 +272,11 @@ Responsabilidades:
 
 ```text
 - Capturar tráfico recibido.
-- Reconstruir tramas.
-- Comparar resultados esperados.
+- Reconstruir tramas recibidas.
+- Comparar tráfico transmitido y recibido.
 ```
 
-Interfaces:
+Interfaces utilizadas:
 
 ```text
 xgmii_rxd
@@ -528,17 +285,40 @@ xgmii_rxc
 
 ---
 
-### SERDES Agent
+### SERDES Driver
 
 Responsabilidades:
 
 ```text
-- Estimular la interfaz SERDES.
-- Inyectar errores controlados.
-- Generar condiciones de pérdida de lock.
+- Generar tráfico directamente sobre la interfaz SERDES.
+- Generar bloques válidos 64b/66b.
+- Estimular el receptor de forma controlada.
 ```
 
-Interfaces:
+Interfaces utilizadas:
+
+```text
+serdes_rx_data
+serdes_rx_hdr
+serdes_rx_data_valid
+serdes_rx_hdr_valid
+```
+
+---
+
+### SERDES Fault Injector
+
+Responsabilidades:
+
+```text
+- Introducir errores de bits.
+- Introducir headers inválidos.
+- Generar pérdida de sincronización.
+- Generar condiciones de error controladas.
+- Generar escenarios de High BER.
+```
+
+Interfaces utilizadas:
 
 ```text
 serdes_rx_data
@@ -552,9 +332,11 @@ serdes_rx_hdr
 Responsabilidades:
 
 ```text
-- Monitorear el estado del receptor.
-- Capturar eventos de lock y unlock.
-- Registrar errores.
+- Monitorear el estado operativo del receptor.
+- Registrar eventos de adquisición de lock.
+- Registrar eventos de pérdida de lock.
+- Registrar eventos de High BER.
+- Registrar errores detectados por el receptor.
 ```
 
 Señales observadas:
@@ -570,13 +352,328 @@ rx_status
 
 ---
 
-## Próxima Etapa
+## Plan de Pruebas
 
-Una vez completado el análisis arquitectónico se procederá a:
+### Categoría A - Integridad Funcional
 
-1. Implementar los agentes definidos.
-2. Construir los primeros testbench de auditoría.
-3. Ejecutar pruebas funcionales.
-4. Ejecutar pruebas de conformidad IEEE.
-5. Documentar los hallazgos obtenidos.
+Objetivo:
+
+```text
+Verificar la transmisión correcta extremo a extremo.
+```
+
+#### TEST-F01 - Loopback Básico
+
+Agentes utilizados:
+
+```text
+XGMII Driver
+XGMII Monitor
+```
+
+Verificación:
+
+```text
+TX == RX
+```
+
+---
+
+#### TEST-F02 - Trama Ethernet Mínima
+
+Agentes utilizados:
+
+```text
+XGMII Driver
+XGMII Monitor
+```
+
+Resultado esperado:
+
+```text
+Recepción correcta sin errores.
+```
+
+---
+
+#### TEST-F03 - Trama Ethernet Máxima
+
+Agentes utilizados:
+
+```text
+XGMII Driver
+XGMII Monitor
+```
+
+Resultado esperado:
+
+```text
+Recepción correcta sin errores.
+```
+
+---
+
+### Categoría B - Block Lock
+
+Objetivo:
+
+```text
+Validar los mecanismos de sincronización del receptor.
+```
+
+#### TEST-BL01 - Adquisición de Lock
+
+Agentes utilizados:
+
+```text
+SERDES Driver
+RX Status Monitor
+```
+
+Señal observada:
+
+```text
+rx_block_lock
+```
+
+Resultado esperado:
+
+```text
+0 → 1
+```
+
+---
+
+#### TEST-BL02 - Pérdida de Lock
+
+Agentes utilizados:
+
+```text
+SERDES Fault Injector
+RX Status Monitor
+```
+
+Resultado esperado:
+
+```text
+1 → 0
+```
+
+---
+
+#### TEST-BL03 - Recuperación de Lock
+
+Agentes utilizados:
+
+```text
+SERDES Driver
+SERDES Fault Injector
+RX Status Monitor
+```
+
+Resultado esperado:
+
+```text
+0 → 1
+```
+
+---
+
+### Categoría C - BER Monitoring
+
+Objetivo:
+
+```text
+Validar la detección y contabilización de errores.
+```
+
+#### TEST-BER01 - Canal Limpio
+
+Agentes utilizados:
+
+```text
+SERDES Driver
+RX Status Monitor
+```
+
+Señal observada:
+
+```text
+rx_high_ber
+```
+
+Resultado esperado:
+
+```text
+rx_high_ber = 0
+```
+
+---
+
+#### TEST-BER02 - High BER
+
+Agentes utilizados:
+
+```text
+SERDES Fault Injector
+RX Status Monitor
+```
+
+Resultado esperado:
+
+```text
+rx_high_ber = 1
+```
+
+---
+
+#### TEST-BER03 - Error Counter
+
+Agentes utilizados:
+
+```text
+SERDES Fault Injector
+RX Status Monitor
+```
+
+Señal observada:
+
+```text
+rx_error_count
+```
+
+Resultado esperado:
+
+```text
+Incremento consistente con la cantidad de errores introducidos.
+```
+
+---
+
+### Categoría D - Cumplimiento IEEE 802.3 Clause 49
+
+Objetivo:
+
+```text
+Verificar conformidad funcional con los requisitos del estándar.
+```
+
+#### TEST-STD01 - Sync Header
+
+Bloque analizado:
+
+```text
+taxi_xgmii_baser_enc
+```
+
+Verificación:
+
+```text
+Validar generación de headers 01 y 10.
+```
+
+---
+
+#### TEST-STD02 - Start Block
+
+Bloque analizado:
+
+```text
+taxi_xgmii_baser_enc
+```
+
+Verificación:
+
+```text
+Validar codificación de bloques START.
+```
+
+---
+
+#### TEST-STD03 - Terminate Block
+
+Bloque analizado:
+
+```text
+taxi_xgmii_baser_enc
+```
+
+Verificación:
+
+```text
+Validar codificación de bloques TERM.
+```
+
+---
+
+#### TEST-STD04 - Decoder
+
+Bloque analizado:
+
+```text
+taxi_xgmii_baser_dec
+```
+
+Verificación:
+
+```text
+Validar reconstrucción correcta de la interfaz XGMII.
+```
+
+---
+
+#### TEST-STD05 - Block Lock
+
+Bloque analizado:
+
+```text
+taxi_eth_phy_10g_rx_frame_sync
+```
+
+Verificación:
+
+```text
+Validar criterios de adquisición y pérdida de lock.
+```
+
+---
+
+#### TEST-STD06 - High BER
+
+Bloque analizado:
+
+```text
+taxi_eth_phy_10g_rx_ber_mon
+```
+
+Verificación:
+
+```text
+Validar criterios de detección de alta tasa de errores.
+```
+
+---
+
+## Estructura de Trabajo
+
+```text
+rodri/
+│
+├── README.md
+│
+├── agents/
+│   ├── xgmii_driver.sv
+│   ├── xgmii_monitor.sv
+│   ├── serdes_driver.sv
+│   ├── serdes_fault_injector.sv
+│   └── rx_status_monitor.sv
+│
+└── tests/
+    ├── test_loopback_basic.sv
+    ├── test_block_lock.sv
+    ├── test_loss_of_lock.sv
+    ├── test_lock_recovery.sv
+    ├── test_high_ber.sv
+    └── test_ieee_clause49.sv
+```
 
