@@ -223,22 +223,5 @@ rx_status
 | xgmii_rxd | taxi_xgmii_baser_dec | Exterior |
 | xgmii_rxc | taxi_xgmii_baser_dec | Exterior |
 
----
 
-## Próximos Pasos
-
-1. Analizar la implementación de:
-   - taxi_eth_phy_10g_rx_frame_sync
-   - taxi_eth_phy_10g_rx_ber_mon
-   - taxi_eth_phy_10g_rx_watchdog
-
-2. Completar la matriz de señales de estado del receptor.
-
-3. Determinar los criterios utilizados para:
-   - Block Lock
-   - Loss of Lock
-   - High BER
-   - RX Status
-
-4. Definir los primeros casos de prueba orientados a la validación del receptor.
 
