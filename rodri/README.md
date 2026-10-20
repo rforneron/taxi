@@ -362,7 +362,7 @@ Objetivo:
 Verificar la transmisión correcta extremo a extremo.
 ```
 
-#### TEST-F01 - Loopback Básico
+#### TEST-A1 - Loopback Básico
 
 Agentes utilizados:
 
@@ -379,7 +379,7 @@ TX == RX
 
 ---
 
-#### TEST-F02 - Trama Ethernet Mínima
+#### TEST-A2 - Trama Ethernet Mínima
 
 Agentes utilizados:
 
@@ -396,7 +396,7 @@ Recepción correcta sin errores.
 
 ---
 
-#### TEST-F03 - Trama Ethernet Máxima
+#### TEST-A3 - Trama Ethernet Máxima
 
 Agentes utilizados:
 
@@ -421,7 +421,7 @@ Objetivo:
 Validar los mecanismos de sincronización del receptor.
 ```
 
-#### TEST-BL01 - Adquisición de Lock
+#### TEST-B1 - Adquisición de Lock
 
 Agentes utilizados:
 
@@ -444,7 +444,7 @@ Resultado esperado:
 
 ---
 
-#### TEST-BL02 - Pérdida de Lock
+#### TEST-B2 - Pérdida de Lock
 
 Agentes utilizados:
 
@@ -461,7 +461,7 @@ Resultado esperado:
 
 ---
 
-#### TEST-BL03 - Recuperación de Lock
+#### TEST-B3 - Recuperación de Lock
 
 Agentes utilizados:
 
@@ -487,7 +487,7 @@ Objetivo:
 Validar la detección y contabilización de errores.
 ```
 
-#### TEST-BER01 - Canal Limpio
+#### TEST-BER1 - Canal Limpio
 
 Agentes utilizados:
 
@@ -510,7 +510,7 @@ rx_high_ber = 0
 
 ---
 
-#### TEST-BER02 - High BER
+#### TEST-BER2 - High BER
 
 Agentes utilizados:
 
@@ -527,7 +527,7 @@ rx_high_ber = 1
 
 ---
 
-#### TEST-BER03 - Error Counter
+#### TEST-BER3 - Error Counter
 
 Agentes utilizados:
 
@@ -558,7 +558,7 @@ Objetivo:
 Verificar conformidad funcional con los requisitos del estándar.
 ```
 
-#### TEST-STD01 - Sync Header
+#### TEST-STD1 - Sync Header
 
 Bloque analizado:
 
@@ -574,7 +574,7 @@ Validar generación de headers 01 y 10.
 
 ---
 
-#### TEST-STD02 - Start Block
+#### TEST-STD2 - Start Block
 
 Bloque analizado:
 
@@ -590,7 +590,7 @@ Validar codificación de bloques START.
 
 ---
 
-#### TEST-STD03 - Terminate Block
+#### TEST-STD3 - Terminate Block
 
 Bloque analizado:
 
@@ -606,7 +606,7 @@ Validar codificación de bloques TERM.
 
 ---
 
-#### TEST-STD04 - Decoder
+#### TEST-STD4 - Decoder
 
 Bloque analizado:
 
@@ -622,7 +622,7 @@ Validar reconstrucción correcta de la interfaz XGMII.
 
 ---
 
-#### TEST-STD05 - Block Lock
+#### TEST-STD5 - Block Lock
 
 Bloque analizado:
 
@@ -638,7 +638,7 @@ Validar criterios de adquisición y pérdida de lock.
 
 ---
 
-#### TEST-STD06 - High BER
+#### TEST-STD6 - High BER
 
 Bloque analizado:
 
