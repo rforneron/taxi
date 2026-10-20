@@ -181,7 +181,7 @@ rx_status
 ### Descripción preliminar
 
 | Señal | Función |
-|---------|---------|
+|:---------:|:---------:|
 | rx_error_count | Contador de errores detectados |
 | rx_bad_block | Bloque inválido detectado |
 | rx_sequence_error | Error de secuencia detectado |
