@@ -2,17 +2,24 @@
 
 ## Objetivo
 
-El objetivo de este trabajo es analizar, comprender y validar el funcionamiento interno del módulo `taxi_eth_phy_10g` del proyecto Taxi.
+Comprender la arquitectura interna de `taxi_eth_phy_10g`, identificar sus bloques funcionales, documentar el flujo de datos y relevar las señales utilizadas entre módulos para futuras tareas de validación y auditoría.
 
-La auditoría se centra en:
+---
 
-- Comprender la arquitectura interna del PHY.
-- Identificar los bloques funcionales que participan en la transmisión y recepción.
-- Relevar las señales utilizadas entre bloques.
-- Construir agentes de validación reutilizables.
-- Diseñar y ejecutar pruebas funcionales.
-- Verificar cumplimiento con IEEE 802.3 Clause 49 (10GBASE-R).
-- Registrar hallazgos y posibles desviaciones del estándar.
+## Alcance
+
+Módulo principal auditado:
+
+- taxi_eth_phy_10g
+
+Submódulos identificados:
+
+- taxi_eth_phy_10g_tx
+- taxi_eth_phy_10g_rx
+- taxi_xgmii_baser_enc
+- taxi_xgmii_baser_dec
+- taxi_eth_phy_10g_tx_if
+- taxi_eth_phy_10g_rx_if
 
 ---
 
@@ -20,15 +27,13 @@ La auditoría se centra en:
 
 ### Entorno
 
-- ✅ Repositorio clonado
-- ✅ Entorno virtual configurado
-- ✅ Cocotb configurado
-- ✅ cocotbext-eth instalado
-- ✅ Verilator 5.x funcionando
+- ✅ Repositorio configurado
+- ✅ Entorno virtual operativo
+- ✅ Cocotb funcionando
+- ✅ Verilator funcionando
+- ✅ Tests originales ejecutados correctamente
 
 ### Validación Inicial
-
-Los testbench originales del proyecto fueron ejecutados exitosamente:
 
 ```text
 TESTS = 3
@@ -36,155 +41,204 @@ PASS  = 3
 FAIL  = 0
 ```
 
-Esto confirma el correcto funcionamiento del entorno de simulación antes de comenzar la auditoría.
-
 ---
 
 ## Arquitectura General
 
-### Camino TX
+```mermaid
+flowchart LR
 
-```text
-XGMII
-  ↓
-taxi_xgmii_baser_enc
-  ↓
-taxi_eth_phy_10g_tx
-  ↓
-SERDES
-```
+    XGMII_TX["XGMII TX"]
 
-### Camino RX
+    TX["taxi_eth_phy_10g_tx"]
 
-```text
-SERDES
-  ↓
-taxi_eth_phy_10g_rx
-  ↓
-taxi_xgmii_baser_dec
-  ↓
-XGMII
+    SERDES["SERDES"]
+
+    RX["taxi_eth_phy_10g_rx"]
+
+    XGMII_RX["XGMII RX"]
+
+    XGMII_TX --> TX
+    TX --> SERDES
+    SERDES --> RX
+    RX --> XGMII_RX
 ```
 
 ---
 
-## Bloques Analizados
+## Arquitectura TX
+
+```mermaid
+flowchart LR
+
+    XGMII["XGMII"]
+
+    ENC["taxi_xgmii_baser_enc"]
+
+    TXIF["taxi_eth_phy_10g_tx_if"]
+
+    SERDES["SERDES"]
+
+    XGMII --> ENC
+    ENC --> TXIF
+    TXIF --> SERDES
+```
 
 ### taxi_xgmii_baser_enc
 
-Responsable de la codificación:
+Responsabilidades identificadas:
 
 ```text
-XGMII → 64b/66b
+- Codificación XGMII → 64b/66b
+- Generación de Sync Header
+- Conversión de bloques de control
 ```
 
-Funciones principales:
+### taxi_eth_phy_10g_tx_if
 
-- Generación de bloques 64b/66b.
-- Conversión de caracteres de control.
-- Generación de Sync Headers.
+Responsabilidades identificadas:
 
----
-
-### taxi_eth_phy_10g_tx
-
-Responsable del procesamiento de transmisión.
-
-Funciones principales:
-
-- Scrambling.
-- Adaptación hacia la interfaz SERDES.
-- Generación del flujo transmitido.
+```text
+- Scrambler
+- PRBS31 Generator
+- Bit Reversal
+- SERDES Pipeline
+- Gearbox Synchronization
+```
 
 ---
 
-### taxi_eth_phy_10g_rx
+## Arquitectura RX
 
-Responsable del procesamiento de recepción.
+```mermaid
+flowchart LR
 
-Funciones principales:
+    SERDES["SERDES"]
 
-- Frame Sync.
-- Block Lock.
-- Monitoreo BER.
-- Descrambling.
-- Recuperación de bloques 64b/66b.
+    RXIF["taxi_eth_phy_10g_rx_if"]
 
----
+    DEC["taxi_xgmii_baser_dec"]
+
+    XGMII["XGMII"]
+
+    SERDES --> RXIF
+    RXIF --> DEC
+    DEC --> XGMII
+```
+
+### taxi_eth_phy_10g_rx_if
+
+Responsabilidades identificadas:
+
+```text
+- Descrambler
+- PRBS31 Checker
+- Bit Reversal
+- SERDES Pipeline
+- Frame Synchronization
+- BER Monitoring
+- Watchdog
+```
 
 ### taxi_xgmii_baser_dec
 
-Responsable de la decodificación:
+Responsabilidades identificadas:
 
 ```text
-64b/66b → XGMII
+- Decodificación 64b/66b
+- Reconstrucción de interfaz XGMII
 ```
 
-Funciones principales:
+---
 
-- Reconstrucción de tramas XGMII.
-- Decodificación de bloques de control.
-- Recuperación de START, TERM e IDLE.
+## Submódulos RX Identificados
 
+Durante el análisis de `taxi_eth_phy_10g_rx_if` fueron identificados los siguientes bloques internos:
 
-## Objetivos de la Auditoría
+```text
+taxi_eth_phy_10g_rx_frame_sync
+taxi_eth_phy_10g_rx_ber_mon
+taxi_eth_phy_10g_rx_watchdog
+```
 
-### Arquitectura
+Estos bloques serán analizados en detalle para comprender la lógica de validación y monitoreo del receptor.
 
-- Identificar todos los bloques internos.
-- Documentar interfaces.
-- Documentar flujo de datos.
+---
 
+## Estado del Receptor
 
-### Señales
+Las siguientes señales fueron identificadas como indicadores principales del estado operativo del enlace:
 
-- Construir matriz de señales.
-- Identificar origen y destino de cada señal.
-- Identificar señales de estado del receptor.
+```text
+rx_error_count
+rx_bad_block
+rx_sequence_error
+rx_block_lock
+rx_high_ber
+rx_status
+```
 
+### Descripción preliminar
 
-### Validación Funcional
+| Señal | Función |
+|---------|---------|
+| rx_error_count | Contador de errores detectados |
+| rx_bad_block | Bloque inválido detectado |
+| rx_sequence_error | Error de secuencia detectado |
+| rx_block_lock | Indica alineación de bloques 64b/66b |
+| rx_high_ber | Indica alta tasa de errores |
+| rx_status | Estado general del receptor |
 
-- Integridad de datos TX/RX.
-- Block Lock.
-- Loss of Lock.
-- Lock Recovery.
-- BER Monitoring.
+---
 
+## Matriz de Señales Confirmadas
 
-### Cumplimiento de Estándar
+### Camino TX
 
-- Validación de Sync Headers.
-- Validación de bloques Start.
-- Validación de bloques Terminate.
-- Validación de Ordered Sets.
-- Verificación de algoritmos de Block Lock.
-- Verificación de detección de High BER.
+| Señal | Origen | Destino |
+|---------|---------|---------|
+| xgmii_txd | Exterior | taxi_xgmii_baser_enc |
+| xgmii_txc | Exterior | taxi_xgmii_baser_enc |
+| encoded_tx_data | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
+| encoded_tx_data_valid | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
+| encoded_tx_hdr | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
+| encoded_tx_hdr_valid | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
+| serdes_tx_data | taxi_eth_phy_10g_tx_if | Exterior |
+| serdes_tx_data_valid | taxi_eth_phy_10g_tx_if | Exterior |
+| serdes_tx_hdr | taxi_eth_phy_10g_tx_if | Exterior |
+| serdes_tx_hdr_valid | taxi_eth_phy_10g_tx_if | Exterior |
+
+### Camino RX
+
+| Señal | Origen | Destino |
+|---------|---------|---------|
+| serdes_rx_data | Exterior | taxi_eth_phy_10g_rx_if |
+| serdes_rx_data_valid | Exterior | taxi_eth_phy_10g_rx_if |
+| serdes_rx_hdr | Exterior | taxi_eth_phy_10g_rx_if |
+| serdes_rx_hdr_valid | Exterior | taxi_eth_phy_10g_rx_if |
+| encoded_rx_data | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
+| encoded_rx_data_valid | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
+| encoded_rx_hdr | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
+| encoded_rx_hdr_valid | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
+| xgmii_rxd | taxi_xgmii_baser_dec | Exterior |
+| xgmii_rxc | taxi_xgmii_baser_dec | Exterior |
 
 ---
 
 ## Próximos Pasos
 
-### Fase 1
+1. Analizar la implementación de:
+   - taxi_eth_phy_10g_rx_frame_sync
+   - taxi_eth_phy_10g_rx_ber_mon
+   - taxi_eth_phy_10g_rx_watchdog
 
-- Identificar señales internas reales.
-- Construir matriz de señales.
-- Confirmar conexiones entre módulos.
+2. Completar la matriz de señales de estado del receptor.
 
-### Fase 2
+3. Determinar los criterios utilizados para:
+   - Block Lock
+   - Loss of Lock
+   - High BER
+   - RX Status
 
-- Diseñar agentes reutilizables.
-- Diseñar monitores.
-- Diseñar scoreboard.
+4. Definir los primeros casos de prueba orientados a la validación del receptor.
 
-### Fase 3
-
-- Implementar pruebas funcionales.
-- Implementar pruebas de sincronización.
-- Implementar pruebas de cumplimiento IEEE.
-
-### Fase 4
-
-- Ejecutar auditoría.
-- Registrar hallazgos.
-- Documentar conclusiones.
