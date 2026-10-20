@@ -1,4 +1,4 @@
-# TEST PLAN taxi_eth_phy_10g
+# TEST PLAN
 
 ## Objetivo
 
