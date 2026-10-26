@@ -1,134 +1,99 @@
-// ===========================================================
-//                    AGENTE RX STATUS MONITOR
-// ===========================================================
-//
-//  Objetivo:
-// Monitorear el estado operativo del receptor 10GBASE-R.
-//
-// Se;ales monitoreadas:
-// - rx_error_count
-// - rx_bad_block
-// - rx_sequence_error
-// - rx_block_lock
-// - rx_high_ber
-// - rx_status
-//
-//  Version 1: No probada todavia
-// ===========================================================
-// -----------------------------------------------------------
-
+`timescale 1ns / 1ps
 
 module rx_status_monitor (
-    input logic         clk,
-    input logic         rst,
-
-    input logic [6:0]   rx_error_count,
-    input logic         rx_bad_block,
-    input logic         rx_sequence_error,
-    input logic         rx_block_lock,
-    input logic         rx_high_ber,
-    input logic         rx_status
+    input  logic        clk,
+    input  logic        rst,
+    input  logic [6:0]  rx_error_count,
+    input  logic        rx_bad_block,
+    input  logic        rx_sequence_error,
+    input  logic        rx_block_lock,
+    input  logic        rx_high_ber,
+    input  logic        rx_status,
+    input  logic        serdes_rx_bitslip,
+    input  logic        serdes_rx_reset_req,
+    output logic [31:0] lock_acquire_count,
+    output logic [31:0] lock_loss_count,
+    output logic [31:0] bitslip_count,
+    output logic [31:0] bad_block_count,
+    output logic [31:0] sequence_error_count,
+    output logic [31:0] high_ber_assert_count,
+    output logic [31:0] rx_status_up_count,
+    output logic [31:0] rx_status_down_count,
+    output logic [31:0] reset_request_count,
+    output logic [31:0] rx_error_count_change_count
 );
 
-    // -------------------------------------------------------
-    // Estado anterior
-    // -------------------------------------------------------
-
     logic rx_block_lock_prev;
+    logic serdes_rx_bitslip_prev;
     logic rx_high_ber_prev;
     logic rx_status_prev;
-
-    // -------------------------------------------------------
-    // Inicializacion
-    // -------------------------------------------------------
-
-    initial begin
-        rx_block_lock_prev = 1'b0;
-        rx_high_ber_prev   = 1'b0;
-        rx_status_prev     = 1'b0;
-    end
-
-    // -------------------------------------------------------
-    // Monitor principal
-    // -------------------------------------------------------
+    logic [6:0] rx_error_count_prev;
 
     always_ff @(posedge clk) begin
-
         if (rst) begin
-
             rx_block_lock_prev <= 1'b0;
-            rx_high_ber_prev   <= 1'b0;
-            rx_status_prev     <= 1'b0;
+            serdes_rx_bitslip_prev <= 1'b0;
+            rx_high_ber_prev <= 1'b0;
+            rx_status_prev <= 1'b0;
+            rx_error_count_prev <= '0;
 
-        end
-        else begin
-
-            //-------------------------------------------------
-            // Block Lock
-            //-------------------------------------------------
-
+            lock_acquire_count <= '0;
+            lock_loss_count <= '0;
+            bitslip_count <= '0;
+            bad_block_count <= '0;
+            sequence_error_count <= '0;
+            high_ber_assert_count <= '0;
+            rx_status_up_count <= '0;
+            rx_status_down_count <= '0;
+            reset_request_count <= '0;
+            rx_error_count_change_count <= '0;
+        end else begin
             if (rx_block_lock && !rx_block_lock_prev) begin
-                $display("[%0t] RX_MONITOR: Block Lock ACQUIRED",
-                    $time);
+                lock_acquire_count <= lock_acquire_count + 1'b1;
             end
 
             if (!rx_block_lock && rx_block_lock_prev) begin
-                $display("[%0t] RX_MONITOR: Block Lock LOST",
-                    $time);
+                lock_loss_count <= lock_loss_count + 1'b1;
             end
 
-            //-------------------------------------------------
-            // High BER
-            //-------------------------------------------------
-
-            if (rx_high_ber && !rx_high_ber_prev) begin
-                $display("[%0t] RX_MONITOR: HIGH BER DETECTED",
-                    $time);
+            if (serdes_rx_bitslip && !serdes_rx_bitslip_prev) begin
+                bitslip_count <= bitslip_count + 1'b1;
             end
-
-            if (!rx_high_ber && rx_high_ber_prev) begin
-                $display("[%0t] RX_MONITOR: HIGH BER CLEARED",
-                    $time);
-            end
-
-            //-------------------------------------------------
-            // RX Status
-            //-------------------------------------------------
-
-            if (rx_status && !rx_status_prev) begin
-                $display("[%0t] RX_MONITOR: RX STATUS UP",
-                    $time);
-            end
-
-            if (!rx_status && rx_status_prev) begin
-                $display("[%0t] RX_MONITOR: RX STATUS DOWN",
-                    $time);
-            end
-
-            //-------------------------------------------------
-            // Errores
-            //-------------------------------------------------
 
             if (rx_bad_block) begin
-                $display("[%0t] RX_MONITOR: Bad Block",
-                    $time);
+                bad_block_count <= bad_block_count + 1'b1;
             end
 
             if (rx_sequence_error) begin
-                $display("[%0t] RX_MONITOR: Sequence Error",
-                    $time);
+                sequence_error_count <= sequence_error_count + 1'b1;
             end
 
-            //-------------------------------------------------
-            // Actualización de estado
-            //-------------------------------------------------
+            if (rx_high_ber && !rx_high_ber_prev) begin
+                high_ber_assert_count <= high_ber_assert_count + 1'b1;
+            end
+
+            if (rx_status && !rx_status_prev) begin
+                rx_status_up_count <= rx_status_up_count + 1'b1;
+            end
+
+            if (!rx_status && rx_status_prev) begin
+                rx_status_down_count <= rx_status_down_count + 1'b1;
+            end
+
+            if (serdes_rx_reset_req) begin
+                reset_request_count <= reset_request_count + 1'b1;
+            end
+
+            if (rx_error_count != rx_error_count_prev) begin
+                rx_error_count_change_count <= rx_error_count_change_count + 1'b1;
+            end
 
             rx_block_lock_prev <= rx_block_lock;
-            rx_high_ber_prev   <= rx_high_ber;
-            rx_status_prev     <= rx_status;
-
+            serdes_rx_bitslip_prev <= serdes_rx_bitslip;
+            rx_high_ber_prev <= rx_high_ber;
+            rx_status_prev <= rx_status;
+            rx_error_count_prev <= rx_error_count;
         end
-
     end
 
 endmodule

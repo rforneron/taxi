@@ -1,679 +1,213 @@
-# TEST PLAN
+# Plan de pruebas: `taxi_eth_phy_10g`
 
 ## Objetivo
 
-Comprender la arquitectura interna de `taxi_eth_phy_10g`, identificar sus bloques funcionales, documentar el flujo de datos y relevar las señales utilizadas entre módulos para futuras tareas de validación y auditoría.
+Definir una estrategia de verificación en SystemVerilog para el PHY digital
+`taxi_eth_phy_10g`, sus caminos de transmisión y recepción, y los bloques
+principales que integran la codificación 10GBASE-R.
 
----
+Este archivo describe pruebas propuestas; no significa que ya estén
+implementadas ni que se haya demostrado conformidad formal con IEEE 802.3.
 
-## Alcance
+## Alcance y límites
 
-Módulo principal auditado:
+El top recibe y entrega palabras XGMII y bloques 64b/66b en la interfaz
+SERDES digital. Internamente integra:
 
-- taxi_eth_phy_10g
+- Transmisión: `taxi_xgmii_baser_enc` y `taxi_eth_phy_10g_tx_if`.
+- Recepción: `taxi_eth_phy_10g_rx_if` y `taxi_xgmii_baser_dec`.
+- Monitoreo RX: `taxi_eth_phy_10g_rx_frame_sync`,
+  `taxi_eth_phy_10g_rx_ber_mon` y `taxi_eth_phy_10g_rx_watchdog`.
 
-Submódulos identificados:
+La referencia normativa principal para 10GBASE-R PCS es IEEE 802.3, cláusula
+49; XGMII se define en la cláusula 46. Se deben confirmar los requisitos y
+vectores de referencia contra la edición del estándar aplicable al proyecto.
+Una simulación RTL puede verificar comportamiento digital observable, pero
+por sí sola no certifica conformidad completa ni cubre la capa eléctrica,
+PMA/PMD, transceptores, placa o tolerancias analógicas.
 
-- taxi_eth_phy_10g_tx
-- taxi_eth_phy_10g_rx
-- taxi_xgmii_baser_enc
-- taxi_xgmii_baser_dec
-- taxi_eth_phy_10g_tx_if
-- taxi_eth_phy_10g_rx_if
+La PHY no sustituye las funciones de MAC. Las pruebas deben generar secuencias
+XGMII legales y no atribuir a este top la generación o comprobación de FCS, ni
+el filtrado por tamaños Ethernet de trama.
 
----
+## Interfaz y señales de interés
 
-## Estado Actual
+Los nombres son los puertos del top
+[`taxi_eth_phy_10g`](../src/eth/rtl/taxi_eth_phy_10g.sv). El reloj y reset
+TX son independientes de los de RX.
 
-### Entorno
+| Camino | Señales | Uso en la verificación |
+|---|---|---|
+| Relojes y reset | `tx_clk`, `tx_rst`, `rx_clk`, `rx_rst` | Probar resets independientes y actividad con dominios TX/RX desacoplados. |
+| XGMII TX | `xgmii_txd`, `xgmii_txc`, `xgmii_tx_valid` | Inyectar palabras XGMII, caracteres de control y ciclos sin datos válidos cuando corresponda. |
+| SERDES TX | `serdes_tx_data`, `serdes_tx_hdr`, `serdes_tx_data_valid`, `serdes_tx_hdr_valid` | Comprobar datos, sync header y validez del bloque emitido. |
+| XGMII RX | `xgmii_rxd`, `xgmii_rxc`, `xgmii_rx_valid` | Comparar palabras reconstruidas, control por byte y validez con la referencia. |
+| SERDES RX | `serdes_rx_data`, `serdes_rx_hdr`, `serdes_rx_data_valid`, `serdes_rx_hdr_valid` | Inyectar bloques válidos, huecos de validez y errores de header. |
+| Estado del bloque RX | `rx_block_lock`, `serdes_rx_bitslip` | Observar adquisición/pérdida de alineación y los pulsos de bitslip. |
+| Errores RX | `rx_bad_block`, `rx_sequence_error`, `rx_high_ber` | Distinguir bloques de control inválidos, errores de secuencia y headers 64b/66b inválidos en una ventana. |
+| Estado y recuperación RX | `rx_status`, `serdes_rx_reset_req` | Verificar los criterios temporizados del watchdog y las solicitudes de reset. |
+| Contador PRBS RX | `rx_error_count` | Contar errores de PRBS31 cuando el modo está habilitado; **no** es un contador general de errores de trama/bloque. |
+| Estado TX | `tx_bad_block` | Detectar una palabra/bloque XGMII de entrada no codificable según el encoder. |
+| Gearbox TX | `tx_gbx_req_sync`, `tx_gbx_req_stall`, `tx_gbx_sync`, `serdes_tx_gbx_req_sync`, `serdes_tx_gbx_req_stall`, `serdes_tx_gbx_sync` | Verificar las señales de coordinación cuando `TX_GBX_IF_EN` está habilitado y sus valores inactivos cuando no lo está. |
+| Gearbox RX | `serdes_rx_gbx_sync`, `rx_gbx_sync` | Verificar el paso y la alineación del sync cuando `RX_GBX_IF_EN` está habilitado. |
+| Configuración PRBS31 | `cfg_tx_prbs31_enable`, `cfg_rx_prbs31_enable` | Activar/verificar el generador y checker PRBS solo cuando `PRBS31_EN` está configurado. |
 
-- ✅ Repositorio configurado
-- ✅ Entorno virtual operativo
-- ✅ Cocotb funcionando
-- ✅ Verilator funcionando
-- ✅ Tests originales ejecutados correctamente
+Los buses codificados `encoded_tx_*` y `encoded_rx_*` son señales internas de
+las instancias TX/RX, no puertos del top. Las pruebas de integración deben
+priorizar las interfaces públicas. Se pueden observar señales internas en
+pruebas unitarias específicas del submódulo, evitando depender de rutas
+jerárquicas privadas en el scoreboard del top.
 
-### Validación Inicial
+### Interpretación de estado RX
 
-```text
-TESTS = 3
-PASS  = 3
-FAIL  = 0
+- `rx_block_lock` proviene del detector de sync headers del receptor.
+- `rx_high_ber` se calcula a partir de sync headers inválidos, no de una medida
+  analógica ni de errores arbitrarios en los bits de payload.
+- `rx_bad_block` y `rx_sequence_error` los produce el decoder 64b/66b a partir
+  de bloques/control y secuencias XGMII.
+- `rx_error_count` mide discrepancias PRBS31 en el checker, con anchura de 7
+  bits. Para probarlo hay que habilitar `PRBS31_EN` y `cfg_rx_prbs31_enable`;
+  en el modo normal no debe usarse como sustituto de `rx_bad_block`.
+- `rx_status` y `serdes_rx_reset_req` dependen del watchdog y de ventanas de
+  tiempo; no son señales de respuesta inmediata a un único bloque.
+
+## Estrategia de testbench SystemVerilog
+
+Usar un testbench autochecking organizado en tareas de estímulo, monitores,
+modelo de referencia/scoreboard y checks con `$fatal` ante errores. Separar:
+
+1. Pruebas de integración del top con loopback digital SERDES TX a RX usando
+   un reloj común o un modelo de enlace que respete los dominios de reloj.
+2. Pruebas unitarias para encoder/decoder y para los monitores RX temporizados.
+3. Pruebas de parámetros: `DATA_W` 32 y 64; opciones de pipeline, bit reverse,
+   scrambler, PRBS31 y gearbox según las configuraciones que usa el diseño.
+
+Mantener una referencia de bloques XGMII/64b/66b independiente de la lógica RTL
+que se prueba. No comprobar solo que dos instancias con el mismo defecto se
+cancelan en loopback: agregar vectores de referencia para codificación,
+headers, bloques de control y secuencias.
+
+Para no gastar cientos de miles de ciclos, configurar un `COUNT_125US` pequeño
+en las pruebas del BER monitor/watchdog. Comprobar las transiciones en los
+límites de ventana de acuerdo con el parámetro y con los ciclos de latencia del
+testbench.
+
+### Primera prueba SystemVerilog implementada
+
+Las pruebas SystemVerilog cubren el sincronizador RX y los caminos de datos TX,
+RX y loopback del top. Los agentes reutilizables son:
+
+- [`serdes_rx_header_driver.sv`](./agents/serdes_rx_header_driver.sv) aplica
+  sync headers válidos o inválidos y permite dejar ciclos sin header válido.
+- [`xgmii_tx_driver.sv`](./agents/xgmii_tx_driver.sv) presenta palabras y
+  caracteres de control por la interfaz XGMII de transmisión.
+- [`serdes_rx_data_driver.sv`](./agents/serdes_rx_data_driver.sv) presenta
+  bloques SERDES completos con sus indicadores de validez.
+- [`serdes_tx_monitor.sv`](./agents/serdes_tx_monitor.sv) registra los bloques
+  y headers emitidos por SERDES TX para comprobarlos o reproducirlos.
+- [`xgmii_rx_monitor.sv`](./agents/xgmii_rx_monitor.sv) registra las palabras
+  reconstruidas por XGMII RX junto con sus indicadores de error.
+- [`rx_status_monitor.sv`](./agents/rx_status_monitor.sv) registra transiciones
+  de lock, bitslip y status, además de pulsos de error y cambios del contador
+  PRBS. Los contadores se reinician con `rst`.
+
+El testbench
+[`tb_eth_phy_10g_data.sv`](./tests/tb_eth_phy_10g_data.sv) ejecuta tres etapas:
+comprueba headers TX, reproduce en RX los bloques SERDES capturados y verifica
+la salida XGMII, y conecta la salida SERDES TX a la entrada SERDES RX para
+verificar el loopback del top. Usa un reloj común, `DATA_W=64`, scrambler activo
+y pipeline SERDES de dos etapas. Estos son casos básicos; aún no cubren todos
+los parámetros, errores de protocolo ni una certificación de IEEE 802.3.
+
+- [`tb_rx_frame_sync.sv`](./tests/tb_rx_frame_sync.sv) comprueba reset,
+  adquisición tras 64 headers válidos, rechazo de un header inválido no válido,
+  pérdida tras 16 headers inválidos consecutivos, bitslip y readquisición.
+
+El driver cambia sus salidas en el flanco descendente y deja que el DUT las
+muestree en el flanco ascendente, evitando carreras. Los monitores solo capturan
+señales; las comparaciones de datos y los `$fatal` pertenecen a los testbenches.
+
+Desde PowerShell, ejecutar las dos pruebas:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\rodri\tests\run_rx_frame_sync.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\rodri\tests\run_eth_phy_10g_data.ps1
 ```
 
----
-
-## Arquitectura General
-
-```mermaid
-flowchart LR
-
-    XGMII_TX["XGMII TX"]
-
-    TX["taxi_eth_phy_10g_tx"]
-
-    SERDES["SERDES"]
-
-    RX["taxi_eth_phy_10g_rx"]
-
-    XGMII_RX["XGMII RX"]
-
-    XGMII_TX --> TX
-    TX --> SERDES
-    SERDES --> RX
-    RX --> XGMII_RX
-```
-
----
-
-## Arquitectura TX
-
-```mermaid
-flowchart LR
-
-    XGMII["XGMII"]
-
-    ENC["taxi_xgmii_baser_enc"]
-
-    TXIF["taxi_eth_phy_10g_tx_if"]
-
-    SERDES["SERDES"]
-
-    XGMII --> ENC
-    ENC --> TXIF
-    TXIF --> SERDES
-```
-
-### taxi_xgmii_baser_enc
-
-Responsabilidades identificadas:
-
-```text
-- Codificación XGMII → 64b/66b
-- Generación de Sync Header
-- Conversión de bloques de control
-```
-
-### taxi_eth_phy_10g_tx_if
-
-Responsabilidades identificadas:
-
-```text
-- Scrambler
-- PRBS31 Generator
-- Bit Reversal
-- SERDES Pipeline
-- Gearbox Synchronization
-```
-
----
-
-## Arquitectura RX
-
-```mermaid
-flowchart LR
-
-    SERDES["SERDES"]
-
-    RXIF["taxi_eth_phy_10g_rx_if"]
-
-    DEC["taxi_xgmii_baser_dec"]
-
-    XGMII["XGMII"]
-
-    SERDES --> RXIF
-    RXIF --> DEC
-    DEC --> XGMII
-```
-
-### taxi_eth_phy_10g_rx_if
-
-Responsabilidades identificadas:
-
-```text
-- Descrambler
-- PRBS31 Checker
-- Bit Reversal
-- SERDES Pipeline
-- Frame Synchronization
-- BER Monitoring
-- Watchdog
-```
-
-### taxi_xgmii_baser_dec
-
-Responsabilidades identificadas:
-
-```text
-- Decodificación 64b/66b
-- Reconstrucción de interfaz XGMII
-```
-
----
-
-## Submódulos RX Identificados
-
-Durante el análisis de `taxi_eth_phy_10g_rx_if` fueron identificados los siguientes bloques internos:
-
-```text
-taxi_eth_phy_10g_rx_frame_sync
-taxi_eth_phy_10g_rx_ber_mon
-taxi_eth_phy_10g_rx_watchdog
-```
-
-Estos bloques serán analizados en detalle para comprender la lógica de validación y monitoreo del receptor.
-
----
-
-## Estado del Receptor
-
-Las siguientes señales fueron identificadas como indicadores principales del estado operativo del enlace:
-
-```text
-rx_error_count
-rx_bad_block
-rx_sequence_error
-rx_block_lock
-rx_high_ber
-rx_status
-```
-
-### Descripción preliminar
-
-| Señal | Función |
-|:---------:|:---------:|
-| rx_error_count | Contador de errores detectados |
-| rx_bad_block | Bloque inválido detectado |
-| rx_sequence_error | Error de secuencia detectado |
-| rx_block_lock | Indica alineación de bloques 64b/66b |
-| rx_high_ber | Indica alta tasa de errores |
-| rx_status | Estado general del receptor |
-
----
-
-## Matriz de Señales Confirmadas
-
-### Camino TX
-
-| Señal | Origen | Destino |
-|---------|---------|---------|
-| xgmii_txd | Exterior | taxi_xgmii_baser_enc |
-| xgmii_txc | Exterior | taxi_xgmii_baser_enc |
-| encoded_tx_data | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
-| encoded_tx_data_valid | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
-| encoded_tx_hdr | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
-| encoded_tx_hdr_valid | taxi_xgmii_baser_enc | taxi_eth_phy_10g_tx_if |
-| serdes_tx_data | taxi_eth_phy_10g_tx_if | Exterior |
-| serdes_tx_data_valid | taxi_eth_phy_10g_tx_if | Exterior |
-| serdes_tx_hdr | taxi_eth_phy_10g_tx_if | Exterior |
-| serdes_tx_hdr_valid | taxi_eth_phy_10g_tx_if | Exterior |
-
-### Camino RX
-
-| Señal | Origen | Destino |
-|---------|---------|---------|
-| serdes_rx_data | Exterior | taxi_eth_phy_10g_rx_if |
-| serdes_rx_data_valid | Exterior | taxi_eth_phy_10g_rx_if |
-| serdes_rx_hdr | Exterior | taxi_eth_phy_10g_rx_if |
-| serdes_rx_hdr_valid | Exterior | taxi_eth_phy_10g_rx_if |
-| encoded_rx_data | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
-| encoded_rx_data_valid | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
-| encoded_rx_hdr | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
-| encoded_rx_hdr_valid | taxi_eth_phy_10g_rx_if | taxi_xgmii_baser_dec |
-| xgmii_rxd | taxi_xgmii_baser_dec | Exterior |
-| xgmii_rxc | taxi_xgmii_baser_dec | Exterior |
-
----
-## Estrategia de Verificación
-
-La auditoría se implementará mediante componentes de verificación desarrollados en SystemVerilog.
-
-Estos componentes tendrán como objetivo estimular interfaces, monitorear señales internas y verificar el cumplimiento funcional de los diferentes bloques que componen el PHY.
-
-La estrategia adoptada consiste en:
-
-1. Comprender la arquitectura del bloque.
-2. Identificar las señales de entrada y salida.
-3. Definir los casos de prueba.
-4. Implementar agentes reutilizables.
-5. Ejecutar las pruebas.
-6. Analizar resultados y posibles desviaciones respecto al estándar.
-
----
-
-## Agentes de Verificación
-
-Los agentes son componentes reutilizables desarrollados en SystemVerilog que permiten generar estímulos, monitorear interfaces y observar el estado interno del PHY.
-
-### XGMII Driver
-
-Responsabilidades:
-
-```text
-- Generar tráfico XGMII.
-- Generar secuencias START.
-- Generar secuencias TERM.
-- Generar secuencias IDLE.
-- Generar tramas Ethernet de prueba.
-```
-
-Interfaces utilizadas:
-
-```text
-xgmii_txd
-xgmii_txc
-```
-
----
-
-### XGMII Monitor
-
-Responsabilidades:
-
-```text
-- Capturar tráfico recibido.
-- Reconstruir tramas recibidas.
-- Comparar tráfico transmitido y recibido.
-```
-
-Interfaces utilizadas:
-
-```text
-xgmii_rxd
-xgmii_rxc
-```
-
----
-
-### SERDES Driver
-
-Responsabilidades:
-
-```text
-- Generar tráfico directamente sobre la interfaz SERDES.
-- Generar bloques válidos 64b/66b.
-- Estimular el receptor de forma controlada.
-```
-
-Interfaces utilizadas:
-
-```text
-serdes_rx_data
-serdes_rx_hdr
-serdes_rx_data_valid
-serdes_rx_hdr_valid
-```
-
----
-
-### SERDES Fault Injector
-
-Responsabilidades:
-
-```text
-- Introducir errores de bits.
-- Introducir headers inválidos.
-- Generar pérdida de sincronización.
-- Generar condiciones de error controladas.
-- Generar escenarios de High BER.
-```
-
-Interfaces utilizadas:
-
-```text
-serdes_rx_data
-serdes_rx_hdr
-```
-
----
-
-### RX Status Monitor
-
-Responsabilidades:
-
-```text
-- Monitorear el estado operativo del receptor.
-- Registrar eventos de adquisición de lock.
-- Registrar eventos de pérdida de lock.
-- Registrar eventos de High BER.
-- Registrar errores detectados por el receptor.
-```
-
-Señales observadas:
-
-```text
-rx_error_count
-rx_bad_block
-rx_sequence_error
-rx_block_lock
-rx_high_ber
-rx_status
-```
-
----
-
-## Plan de Pruebas
-
-### Categoría A - Integridad Funcional
-
-Objetivo:
-
-```text
-Verificar la transmisión correcta extremo a extremo.
-```
-
-#### TEST-A1 - Loopback Básico
-
-Agentes utilizados:
-
-```text
-XGMII Driver
-XGMII Monitor
-```
-
-Verificación:
-
-```text
-TX == RX
-```
-
----
-
-#### TEST-A2 - Trama Ethernet Mínima
-
-Agentes utilizados:
-
-```text
-XGMII Driver
-XGMII Monitor
-```
-
-Resultado esperado:
-
-```text
-Recepción correcta sin errores.
-```
-
----
-
-#### TEST-A3 - Trama Ethernet Máxima
-
-Agentes utilizados:
-
-```text
-XGMII Driver
-XGMII Monitor
-```
-
-Resultado esperado:
-
-```text
-Recepción correcta sin errores.
-```
-
----
-
-### Categoría B - Block Lock
-
-Objetivo:
-
-```text
-Validar los mecanismos de sincronización del receptor.
-```
-
-#### TEST-B1 - Adquisición de Lock
-
-Agentes utilizados:
-
-```text
-SERDES Driver
-RX Status Monitor
-```
-
-Señal observada:
-
-```text
-rx_block_lock
-```
-
-Resultado esperado:
-
-```text
-0 → 1
-```
-
----
-
-#### TEST-B2 - Pérdida de Lock
-
-Agentes utilizados:
-
-```text
-SERDES Fault Injector
-RX Status Monitor
-```
-
-Resultado esperado:
-
-```text
-1 → 0
-```
-
----
-
-#### TEST-B3 - Recuperación de Lock
-
-Agentes utilizados:
-
-```text
-SERDES Driver
-SERDES Fault Injector
-RX Status Monitor
-```
-
-Resultado esperado:
-
-```text
-0 → 1
-```
-
----
-
-### Categoría C - BER Monitoring
-
-Objetivo:
-
-```text
-Validar la detección y contabilización de errores.
-```
-
-#### TEST-BER1 - Canal Limpio
-
-Agentes utilizados:
-
-```text
-SERDES Driver
-RX Status Monitor
-```
-
-Señal observada:
-
-```text
-rx_high_ber
-```
-
-Resultado esperado:
-
-```text
-rx_high_ber = 0
-```
-
----
-
-#### TEST-BER2 - High BER
-
-Agentes utilizados:
-
-```text
-SERDES Fault Injector
-RX Status Monitor
-```
-
-Resultado esperado:
-
-```text
-rx_high_ber = 1
-```
-
----
-
-#### TEST-BER3 - Error Counter
-
-Agentes utilizados:
-
-```text
-SERDES Fault Injector
-RX Status Monitor
-```
-
-Señal observada:
-
-```text
-rx_error_count
-```
-
-Resultado esperado:
-
-```text
-Incremento consistente con la cantidad de errores introducidos.
-```
-
----
-
-### Categoría D - Cumplimiento IEEE 802.3 Clause 49
-
-Objetivo:
-
-```text
-Verificar conformidad funcional con los requisitos del estándar.
-```
-
-#### TEST-STD1 - Sync Header
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_enc
-```
-
-Verificación:
-
-```text
-Validar generación de headers 01 y 10.
-```
-
----
-
-#### TEST-STD2 - Start Block
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_enc
-```
-
-Verificación:
-
-```text
-Validar codificación de bloques START.
-```
-
----
-
-#### TEST-STD3 - Terminate Block
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_enc
-```
-
-Verificación:
-
-```text
-Validar codificación de bloques TERM.
-```
-
----
-
-#### TEST-STD4 - Decoder
-
-Bloque analizado:
-
-```text
-taxi_xgmii_baser_dec
-```
-
-Verificación:
-
-```text
-Validar reconstrucción correcta de la interfaz XGMII.
-```
-
----
-
-#### TEST-STD5 - Block Lock
-
-Bloque analizado:
-
-```text
-taxi_eth_phy_10g_rx_frame_sync
-```
-
-Verificación:
-
-```text
-Validar criterios de adquisición y pérdida de lock.
-```
-
----
-
-#### TEST-STD6 - High BER
-
-Bloque analizado:
-
-```text
-taxi_eth_phy_10g_rx_ber_mon
-```
-
-Verificación:
-
-```text
-Validar criterios de detección de alta tasa de errores.
-```
-
----
-
-## Estructura de Trabajo
-
-```text
-rodri/
-│
-├── README.md
-│
-├── agents/
-│   ├── xgmii_driver.sv
-│   ├── xgmii_monitor.sv
-│   ├── serdes_driver.sv
-│   ├── serdes_fault_injector.sv
-│   └── rx_status_monitor.sv
-│
-└── tests/
-    ├── test_loopback_basic.sv
-    ├── test_block_lock.sv
-    ├── test_loss_of_lock.sv
-    ├── test_lock_recovery.sv
-    ├── test_high_ber.sv
-    └── test_ieee_clause49.sv
-```
-
+El cambio de política solo se aplica a cada proceso lanzado. Los scripts
+compilan con Verilator en WSL (distribución `Ubuntu`) y dejan los artefactos de
+compilación fuera del repositorio. Usan la instalación local de Verilator
+creada para este entorno.
+
+## Casos de prueba propuestos
+
+### A. Top y transmisión
+
+| ID | Prueba | Estímulo y resultado esperado |
+|---|---|---|
+| PHY-T01 | Reset e inactividad | Aplicar y liberar `tx_rst` y `rx_rst` por separado. Verificar el estado de los bloques que sí implementan reset, drenar la latencia de pipeline antes de comprobar tráfico y no asumir que un reset de un camino reinicia el otro o todos los registros del top. |
+| PHY-T02 | Bloques de datos 64b/66b | Enviar palabras de datos XGMII. Comprobar sync header `10`, secuencia de datos codificada y scrambler contra vectores de referencia. `tx_bad_block` debe permanecer inactivo para entradas válidas. |
+| PHY-T03 | Bloques de control | Enviar IDLE, START, TERM y caracteres de control XGMII válidos. Verificar sync header `01`, block type/payload, ubicación de START y terminación en cada posición legal admitida por el encoder. |
+| PHY-T04 | Tramas y patrones | Enviar varias tramas XGMII legales con patrones todo cero, todo uno, alternante, contador y pseudoaleatorio; comprobar orden, contenido, START/TERM e IFG en la referencia TX/RX. No esperar que la PHY agregue FCS. |
+| PHY-T05 | Entrada no válida | Probar combinaciones/caracteres de control XGMII no codificables y verificar el comportamiento de error documentado por el encoder y `tx_bad_block`. |
+| PHY-T06 | `xgmii_tx_valid` | En configuración con gearbox, introducir ciclos no válidos y comprobar que los datos de entrada y el avance del encoder respetan `xgmii_tx_valid`; no tratar el puerto como backpressure general fuera del modo que lo habilita. |
+
+### B. Recepción y alineación
+
+| ID | Prueba | Estímulo y resultado esperado |
+|---|---|---|
+| PHY-R01 | Decoder y loopback limpio | Inyectar bloques codificados conocidos por SERDES y verificar reconstrucción de `xgmii_rxd/xgmii_rxc`. Después probar loopback TX→RX con ambos caminos inicializados y esperar la adquisición de lock antes de comparar tráfico. |
+| PHY-R02 | Adquisición de block lock | Después del reset, enviar 64 sync headers válidos `01`/`10`; comprobar que `rx_block_lock` se adquiere. Confirmar que headers con `serdes_rx_hdr_valid=0` no se cuentan. |
+| PHY-R03 | Pérdida y readquisición | Con lock adquirido, inyectar 16 headers inválidos consecutivos `00`/`11` para provocar la pérdida de lock; luego restaurar una secuencia válida. Verificar `serdes_rx_bitslip` conforme a `BITSLIP_HIGH_CYCLES`/`BITSLIP_LOW_CYCLES` y readquisición tras 64 headers válidos. |
+| PHY-R04 | Validez y pipeline | Variar `serdes_rx_data_valid`/`serdes_rx_hdr_valid` en la configuración gearbox pertinente. Verificar que data, header, validez y sync conservan alineación con `SERDES_PIPELINE` configurado. |
+| PHY-R05 | Errores de bloque y secuencia | Inyectar block type/control codes ilegales y secuencias START/TERM mal ubicadas en bloques recibidos. Comprobar los pulsos `rx_bad_block`/`rx_sequence_error` y el XGMII de error reconstruido según el decoder. |
+| PHY-R06 | Ancho de datos | Ejecutar los vectores esenciales para `DATA_W=64` y `DATA_W=32`, verificando repacking, validez, orden de palabras y reconstrucción sin pérdidas. |
+
+### C. Monitores, recuperación y configuraciones
+
+| ID | Prueba | Estímulo y resultado esperado |
+|---|---|---|
+| PHY-M01 | High BER debajo/encima del umbral | En ventanas acortadas, inyectar menos de 16 headers de sync inválidos y luego alcanzar 16. Verificar el instante de aserción de `rx_high_ber` y que headers con `serdes_rx_hdr_valid=0` no se contabilicen; confirmar el umbral normativo aplicable antes de afirmar conformidad. |
+| PHY-M02 | Recuperación de BER | Tras activar High BER, enviar una ventana limpia y verificar la desaserción según el temporizador/contador implementado. |
+| PHY-M03 | Watchdog RX saludable | Mantener lock y enviar el sync header de control requerido en cada ventana. En la lógica actual, verificar que `rx_status` se afirma después de 16 ventanas buenas consecutivas. |
+| PHY-M04 | Watchdog RX degradado | Retirar lock o dejar de enviar el sync header de control; por separado, acumular errores de bloque/secuencia hasta el límite. Comprobar la caída de `rx_status` y el pulso de `serdes_rx_reset_req` tras 16 ventanas de error consecutivas en la lógica actual. |
+| PHY-M05 | PRBS31 TX/RX | Con `PRBS31_EN=1`, habilitar ambos modos. Comparar la secuencia PRBS conocida y comprobar conteo cero sin errores; inyectar flips de bits y verificar que `rx_error_count` cuenta discrepancias. Deshabilitar el checker y comprobar el comportamiento inactivo documentado. |
+| PHY-M06 | Scrambler y bit reverse | Comparar vectores conocidos con scrambler activo/deshabilitado y `BIT_REVERSE` habilitado/deshabilitado. Aplicar la reversión coherentemente al modelo SERDES y comprobar los sync headers. |
+| PHY-M07 | Gearbox | Con `TX_GBX_IF_EN`/`RX_GBX_IF_EN` habilitados, aplicar solicitudes, stall y sync en límites de bloque y comprobar propagación/alineación; repetir configuración deshabilitada y verificar señales inactivas. |
+
+Los conteos exactos de lock, BER, watchdog y la duración de bitslip deben
+derivarse de los parámetros y contadores RTL y contrastarse con los requisitos
+normativos aplicables. Evitar asumir que un error de bit en `serdes_rx_data`
+debe activar `rx_high_ber`: ese monitor observa headers inválidos.
+
+## Cobertura y prioridad
+
+- **P0:** reset, vector de referencia TX, recepción de bloque válido, loopback,
+  adquisición/pérdida/readquisición de lock, errores básicos del decoder y
+  checks de status sin tráfico erróneo.
+- **P1:** umbrales BER/watchdog con ventanas reducidas, PRBS31 con error
+  inyectado, configuraciones de 32/64 bits y pipeline.
+- **P2:** combinaciones de gearbox, bit reverse, patrones aleatorios con semilla
+  reproducible y regresiones de límites de block type.
+
+Registrar en cada corrida la configuración de parámetros, semilla, ciclos de
+lock/errores/status y el vector que provocó un fallo. Ejecutar cada check sobre
+la muestra temporal correcta para evitar carreras entre testbench y `always_ff`.
+
+## Cobertura ya existente
+
+El test actual
+[`test_taxi_eth_phy_10g.py`](../src/eth/tb/taxi_eth_phy_10g/test_taxi_eth_phy_10g.py)
+está escrito en cocotb, no en SystemVerilog. Parametriza anchos 32/64 y contiene
+pruebas de tráfico RX, tráfico TX y reacquisición de frame sync tras cambiar el
+offset de bits. Usa scrambler activo, pipeline SERDES de 2, bit reverse
+deshabilitado y gearbox deshabilitado. Aunque habilita la capacidad PRBS31 por
+parámetro, deja `cfg_tx_prbs31_enable` y `cfg_rx_prbs31_enable` inactivos en el
+testbench; no verifica el modo PRBS ni el contador PRBS.
+
+En `rodri/agents` existe
+[`rx_status_monitor.sv`](./agents/rx_status_monitor.sv), marcado en el propio
+archivo como no probado. No se encontró un testbench autochecking en
+SystemVerilog dentro de `rodri`. Por lo tanto, el plan de este README
+complementa la regresión existente; no describe las pruebas cocotb ni el
+monitor como pruebas SystemVerilog ya implementadas.
