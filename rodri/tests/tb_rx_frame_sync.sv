@@ -146,7 +146,29 @@ module tb_rx_frame_sync;
             $fatal(1, "Receiver did not reacquire block lock");
         end
 
+        $display("");
+        $display("============================================================");
+        $display("TEST: RX FRAME SYNC");
+        $display("============================================================");
+        $display("");
+        
+        $display("Lock Acquisitions      : %0d", lock_acquire_count);
+        
+        $display("Lock Losses           : %0d", lock_loss_count);
+        
+        $display("Bitslips Generated    : %0d", bitslip_count);
+      
+
+        $display("Bad Blocks Detected    : %0d", bad_block_count);
+
+       
+        $display("Current Block Lock    : %0b", rx_block_lock);
+        $display("");
+
+        $display("============================================================");
         $display("PASS: RX frame sync acquisition, loss, bitslip, and recovery");
+        $display("============================================================");
+        $display("");
         $finish;
     end
 

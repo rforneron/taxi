@@ -357,9 +357,7 @@ module tb_eth_phy_10g_data;
             $fatal(1, "TX reported a bad block for a legal XGMII frame");
         end
 
-        $display("PASS: TX driver and SERDES monitor captured %0d blocks (%0d data, %0d control)",
-            serdes_sample_count, data_header_count, control_header_count);
-
+      
         // RX phase: reset the receiver, then replay the captured SERDES stream.
         use_internal_loopback = 1'b0;
         enable_xgmii_capture = 1'b0;
@@ -380,8 +378,7 @@ module tb_eth_phy_10g_data;
         if (xgmii_capture_overflow) begin
             $fatal(1, "XGMII RX monitor sample buffer overflowed during replay");
         end
-        $display("PASS: SERDES driver and XGMII monitor verified RX replay");
-
+        
         // Integration phase: route the top's SERDES TX directly into its RX.
         // Keep the link active so the self-synchronous scrambler can settle.
         enable_xgmii_capture = 1'b0;
@@ -419,7 +416,40 @@ module tb_eth_phy_10g_data;
             $fatal(1, "Top reported a block or sequence error in the loopback test");
         end
 
-        $display("PASS: taxi_eth_phy_10g top TX-to-RX loopback");
+        
+        $display("");
+        $display("============================================================");
+        $display("TEST: ETH PHY 10G DATA PATH");
+        $display("============================================================");
+        $display("");
+
+        $display("[TX ENCODING]");
+        $display("------------------------------------------------------------");
+        $display("SERDES Blocks Captured : %0d", serdes_sample_count);
+        $display("Data Blocks            : %0d", data_header_count);
+        $display("Control Blocks         : %0d", control_header_count);
+        $display("TX Bad Block           : %0b", tx_bad_block);
+        $display("");
+
+        $display("[RX REPLAY]");
+        $display("------------------------------------------------------------");
+        $display("XGMII Samples          : %0d", xgmii_sample_count);
+        $display("RX Bad Block           : %0b", rx_bad_block);
+        $display("RX Sequence Error      : %0b", rx_sequence_error);
+        $display("");
+
+        $display("[END TO END LOOPBACK]");
+        $display("------------------------------------------------------------");
+        $display("RX Block Lock          : %0b", rx_block_lock);
+        $display("RX Status              : %0b", rx_status);
+        $display("RX Error Count         : %0d", rx_error_count);
+        $display("RX High BER            : %0b", rx_high_ber);
+        $display("");
+
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
+        $display("");
         $finish;
     end
 
