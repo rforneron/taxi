@@ -62,22 +62,18 @@ module tb_rx_ber_mon;
     // Counters
     // =====================================================
 
-    integer valid_header_count;
-    integer invalid_header_count;
-
-    // =====================================================
-    // Test
-    // =====================================================
+    task automatic apply_reset;
+        @(negedge clk);
+        rst = 1'b1;
+        repeat (3) begin
+            @(posedge clk);
+            #1ps;
+        end
+        @(negedge clk);
+        rst = 1'b0;
+    endtask
 
     initial begin
-
-        valid_header_count   = 0;
-        invalid_header_count = 0;
-
-        // -------------------------------------------------
-        // Reset
-        // -------------------------------------------------
-
         repeat (5) begin
             @(posedge clk);
             #1ps;
@@ -86,126 +82,54 @@ module tb_rx_ber_mon;
         @(negedge clk);
         rst = 1'b0;
 
-        // =================================================
-        // PHASE 1
-        // VALID HEADERS
-        // =================================================
-
-        repeat (32) begin
-            header_driver_inst.send_header(2'b01, 1'b1);
-            valid_header_count++;
-        end
-
-        repeat (32) begin
-            header_driver_inst.send_header(2'b10, 1'b1);
-            valid_header_count++;
-        end
-
+        // An invalid value without a valid header must not affect the monitor.
+        header_driver_inst.send_header(2'b00, 1'b0);
         if (rx_high_ber !== 1'b0) begin
-            $fatal(1,
-                "High BER asserted while sending valid headers");
+            $fatal(1, "M01: invalid header with valid low changed BER status");
         end
 
-        // =================================================
-        // PHASE 2
-        // INVALID HEADER COUNT
-        // =================================================
+        apply_reset();
 
-        repeat (15) begin
+        // M01: verify the implemented threshold at 15/16 invalid headers.
+        for (integer i = 0; i < 15; i = i + 1) begin
             header_driver_inst.send_header(2'b00, 1'b1);
-            invalid_header_count++;
         end
 
         if (rx_high_ber !== 1'b0) begin
-            $fatal(1,
-                "High BER asserted too early (15 invalid headers)");
+            $fatal(1, "M01: High BER asserted before 16 invalid headers");
         end
 
-        // =================================================
-        // PHASE 3
-        // HIGH BER DETECTION
-        // =================================================
-
-        header_driver_inst.send_header(2'b00, 1'b1);
-
-        invalid_header_count++;
+        header_driver_inst.send_header(2'b11, 1'b1);
 
         if (rx_high_ber !== 1'b1) begin
-            $fatal(1,
-                "High BER not asserted after 16 invalid headers");
+            $fatal(1, "M01: High BER did not assert on the 16th invalid header");
         end
 
-        // =================================================
-        // PHASE 4
-        // HEADER MATRIX
-        // =================================================
+        // M02: the first boundary closes the window containing the errors.
+        // The following fully clean window allows High BER to deassert.
+        repeat (COUNT_125US-15) begin
+            header_driver_inst.send_header(2'b01, 1'b1);
+        end
+        if (rx_high_ber !== 1'b1) begin
+            $fatal(1, "M02: High BER cleared before the error window closed");
+        end
 
-        // 01 = valid
-        header_driver_inst.send_header(2'b01, 1'b1);
+        repeat (COUNT_125US+1) begin
+            header_driver_inst.send_header(2'b10, 1'b1);
+        end
+        if (rx_high_ber !== 1'b0) begin
+            $fatal(1, "M02: High BER did not clear after a clean window");
+        end
 
-        // 10 = valid
-        header_driver_inst.send_header(2'b10, 1'b1);
-
-        // 11 = invalid
-        header_driver_inst.send_header(2'b11, 1'b1);
-        invalid_header_count++;
-
-        // 00 = invalid
-        header_driver_inst.send_header(2'b00, 1'b1);
-        invalid_header_count++;
-
-        // =================================================
-        // REPORT
-        // =================================================
-
-        $display("");
-        $display("============================================================");
-        $display("TEST: RX BER MONITOR");
-        $display("============================================================");
-        $display("");
-
-        $display("[VALID HEADERS]");
-        $display("------------------------------------------------------------");
-        $display("Valid Headers Tested   : %0d", valid_header_count);
-        $display("High BER               : 0");
-        $display("");
-
-        $display("[INVALID HEADER COUNT]");
-        $display("------------------------------------------------------------");
-        $display("Invalid Headers Tested : 15");
-        $display("High BER               : 0");
-        $display("");
-
-        $display("[HIGH BER DETECTION]");
-        $display("------------------------------------------------------------");
-        $display("Invalid Headers Tested : 16");
-        $display("High BER               : %0b", rx_high_ber);
-        $display("");
-
-        $display("[HEADER MATRIX]");
-        $display("------------------------------------------------------------");
-        $display("01 -> VALID");
-        $display("10 -> VALID");
-        $display("00 -> INVALID");
-        $display("11 -> INVALID");
-        $display("");
-
-        $display("============================================================");
-        $display("RESULT : PASS");
-        $display("============================================================");
-        $display("");
+        $display("PASS M01: 15/16 invalid-header threshold and valid gating");
+        $display("PASS M02: High BER clears after a clean window");
 
         $finish;
-
     end
-
-    // =====================================================
-    // Timeout Protection
-    // =====================================================
 
     initial begin
         #100us;
-        $fatal(1, "Timeout");
+        $fatal(1, "BER monitor testbench timeout");
     end
 
 endmodule

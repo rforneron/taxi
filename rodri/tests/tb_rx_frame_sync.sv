@@ -111,6 +111,7 @@ module tb_rx_frame_sync;
         if (rx_block_lock !== 1'b1) begin
             $fatal(1, "Block lock did not assert on the 64th valid header");
         end
+        $display("PASS R02: block lock acquired after the configured valid-header count");
 
         // Sixteen consecutive invalid headers cause lock loss and bitslip.
         for (integer i = 0; i < INVALID_HEADERS_TO_UNLOCK; i = i + 1) begin
@@ -145,6 +146,7 @@ module tb_rx_frame_sync;
         if (rx_block_lock !== 1'b1 || lock_acquire_count != 2) begin
             $fatal(1, "Receiver did not reacquire block lock");
         end
+        $display("PASS R03: lock loss, bitslip, and lock reacquisition");
 
         $display("");
         $display("============================================================");

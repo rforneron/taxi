@@ -111,6 +111,37 @@ module tb_rx_watchdog;
             $fatal(1,
                 "rx_status never asserted");
         end
+        $display("PASS M03: watchdog asserts healthy status after consecutive good windows");
+
+        // M04: loss of lock clears status; persistent bad windows request a reset.
+        @(negedge clk);
+        rx_block_lock = 1'b0;
+        @(posedge clk);
+        #1ps;
+        if (rx_status !== 1'b0) begin
+            $fatal(1, "M04: RX status did not clear when block lock was lost");
+        end
+
+        @(negedge clk);
+        rx_block_lock = 1'b1;
+        serdes_rx_hdr = 2'b10;
+        serdes_rx_hdr_valid = 1'b1;
+
+        begin
+            logic reset_request_seen;
+            reset_request_seen = 1'b0;
+            for (integer cycle = 0; cycle < 20*(COUNT_125US+1); cycle = cycle + 1) begin
+                @(posedge clk);
+                #1ps;
+                if (serdes_rx_reset_req) begin
+                    reset_request_seen = 1'b1;
+                end
+            end
+            if (!reset_request_seen) begin
+                $fatal(1, "M04: persistent unhealthy windows did not request an RX reset");
+            end
+        end
+        $display("PASS M04: unhealthy windows clear status and request an RX reset");
 
         // -------------------------------------------------
         // REPORT

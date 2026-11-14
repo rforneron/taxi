@@ -202,6 +202,10 @@ module tb_eth_phy_10g_data;
         .sample_sequence_error(captured_sequence_error)
     );
 
+
+    // IMPLEMENTACION DE TASKS PARA EL TESTBENCH
+
+    // Activa Restet 
     task automatic reset_rx_path;
         @(negedge clk);
         rst = 1'b1;
@@ -213,6 +217,7 @@ module tb_eth_phy_10g_data;
         rst = 1'b0;
     endtask
 
+    // carga los datos y control de la trama esperada
     task automatic configure_expected_frame;
         expected_frame_data[0] = 64'hD5555555555555FB;
         expected_frame_control[0] = 8'h01;
@@ -228,6 +233,30 @@ module tb_eth_phy_10g_data;
         expected_frame_control[4] = 8'hFF;
     endtask
 
+    task automatic configure_payload_pattern(input integer pattern_id);
+        logic [31:0] prng;
+
+        for (integer word_index = 1; word_index <= 3; word_index = word_index + 1) begin
+            case (pattern_id)
+                0: expected_frame_data[word_index] = '0;
+                1: expected_frame_data[word_index] = '1;
+                2: expected_frame_data[word_index] = 64'hAA55AA55AA55AA55;
+                3: expected_frame_data[word_index] = 64'h0706050403020100 +
+                    64'h1010101010101010 * 64'(word_index - 1);
+                default: begin
+                    prng = 32'h1ACEB00C ^ (32'(word_index) * 32'h9E3779B9);
+                    for (integer byte_index = 0; byte_index < 8; byte_index = byte_index + 1) begin
+                        prng = prng ^ (prng << 13);
+                        prng = prng ^ (prng >> 17);
+                        prng = prng ^ (prng << 5);
+                        expected_frame_data[word_index][byte_index*8 +: 8] = prng[7:0];
+                    end
+                end
+            endcase
+        end
+    endtask
+
+    // envia la trama de prueba a traves del driver XGMII
     task automatic send_test_frame;
         for (integer word_index = 0; word_index < FRAME_WORDS; word_index = word_index + 1) begin
             xgmii_tx_driver_inst.send_word(
@@ -237,6 +266,7 @@ module tb_eth_phy_10g_data;
         end
     endtask
 
+    // busca el caracter de inicio de trama en la captura XGMII y compara los datos y control recibidos con los esperados
     task automatic check_received_frame(input string test_name);
         start_sample = -1;
 
@@ -287,6 +317,7 @@ module tb_eth_phy_10g_data;
         end
     endtask
 
+    // entrega los bloques capturados por el monitor SERDES al driver SERDES RX para que sean procesados por el DUT
     task automatic replay_captured_serdes_stream;
         for (integer sample_index = 0;
                 sample_index < serdes_sample_count;
@@ -302,6 +333,8 @@ module tb_eth_phy_10g_data;
         serdes_rx_data_driver_inst.idle_cycles(10);
     endtask
 
+
+
     initial begin
         configure_expected_frame();
         clear_serdes_capture = 1'b1;
@@ -316,8 +349,8 @@ module tb_eth_phy_10g_data;
         rst = 1'b0;
         clear_serdes_capture = 1'b0;
         clear_xgmii_capture = 1'b0;
-
-        // TX phase: capture a standards-shaped idle, start, data, and terminate stream.
+        
+        // Test de transmision
         enable_serdes_capture = 1'b1;
         xgmii_tx_driver_inst.send_idle_words(80);
         send_test_frame();
@@ -357,8 +390,11 @@ module tb_eth_phy_10g_data;
             $fatal(1, "TX reported a bad block for a legal XGMII frame");
         end
 
+        $display("PASS T02: TX data-block headers and valid XGMII frame");
+        $display("PASS T03: TX control-block headers for START/TERM frame");
+
       
-        // RX phase: reset the receiver, then replay the captured SERDES stream.
+        // Test de Recepcion
         use_internal_loopback = 1'b0;
         enable_xgmii_capture = 1'b0;
         clear_xgmii_capture = 1'b1;
@@ -378,9 +414,9 @@ module tb_eth_phy_10g_data;
         if (xgmii_capture_overflow) begin
             $fatal(1, "XGMII RX monitor sample buffer overflowed during replay");
         end
+        $display("PASS R01: SERDES replay reconstructs the expected XGMII frame");
         
-        // Integration phase: route the top's SERDES TX directly into its RX.
-        // Keep the link active so the self-synchronous scrambler can settle.
+        // Test de loopback interno del DUT
         enable_xgmii_capture = 1'b0;
         use_internal_loopback = 1'b1;
 
@@ -415,6 +451,36 @@ module tb_eth_phy_10g_data;
         if (rx_bad_block || rx_sequence_error || tx_bad_block) begin
             $fatal(1, "Top reported a block or sequence error in the loopback test");
         end
+        $display("PASS R01: integrated TX-to-RX loopback reconstructs the frame");
+
+        // T04: verify several payload patterns through the complete scrambled path.
+        for (integer pattern_id = 0; pattern_id < 5; pattern_id = pattern_id + 1) begin
+            configure_payload_pattern(pattern_id);
+            enable_xgmii_capture = 1'b0;
+            clear_xgmii_capture = 1'b1;
+            @(posedge clk);
+            #1ps;
+            clear_xgmii_capture = 1'b0;
+            enable_xgmii_capture = 1'b1;
+
+            xgmii_tx_driver_inst.send_idle_words(8);
+            send_test_frame();
+            xgmii_tx_driver_inst.send_idle_words(16);
+            repeat (8) begin
+                @(posedge clk);
+                #1ps;
+            end
+            check_received_frame($sformatf("T04 payload pattern %0d", pattern_id));
+        end
+        $display("PASS T04: zero, ones, alternating, counter, and deterministic pseudo-random payloads");
+
+        // T05: illegal XGMII control symbols must be reported by the encoder.
+        xgmii_tx_driver_inst.send_word(64'h07070707AA070707, 8'hFF);
+        if (!tx_bad_block) begin
+            $fatal(1, "T05: encoder did not flag an illegal XGMII control symbol");
+        end
+        xgmii_tx_driver_inst.send_idle_words(2);
+        $display("PASS T05: illegal XGMII control symbol raises tx_bad_block");
 
         
         $display("");
