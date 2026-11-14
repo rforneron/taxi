@@ -24,8 +24,19 @@ module tb_phy_prbs_width;
     );
 
     initial begin
+        $display("============================================================");
+        $display("TEST: PRBS31 WIDTH AND VALID GATING (P05)");
+        $display("============================================================");
+        $display("");
+
         wait (done_32 && done_64);
-        $display("PASS P05: PRBS31 output and valid gating work at DATA_W=32 and DATA_W=64");
+        $display("DATA_W Configurations : 32, 64");
+        $display("Valid Gating          : Passed");
+        $display("PRBS Phase Continuity : Passed");
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

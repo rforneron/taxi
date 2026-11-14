@@ -154,6 +154,11 @@ module tb_phy_rx_extended;
     endtask
 
     initial begin
+        $display("============================================================");
+        $display("TEST: RX PIPELINE AND INVALID BLOCKS (R04-R05)");
+        $display("============================================================");
+        $display("");
+
         repeat (5) begin
             @(posedge clk);
             #1ps;
@@ -171,9 +176,6 @@ module tb_phy_rx_extended;
                 (cycle % 7) == 4
             );
         end
-        $display("PASS R04: RX data/header/valid/sync stay aligned through a %0d-cycle pipeline",
-            PIPELINE);
-
         // R05: reject both an illegal block type and an illegal control code.
         send_decoder_block(64'h0000000000000002, 2'b01);
         if (rx_bad_block !== 1'b1) begin
@@ -185,7 +187,14 @@ module tb_phy_rx_extended;
                 xgmii_rxc[0] !== 1'b1) begin
             $fatal(1, "R05: decoder did not flag an illegal control code");
         end
-        $display("PASS R05: illegal block types and control codes assert rx_bad_block");
+        $display("Pipeline Depth       : %0d cycles", PIPELINE);
+        $display("Pipeline Samples     : %0d", SAMPLES);
+        $display("Invalid Blocks Tested: %0d", 2);
+        $display("RX Bad Block         : %0b", rx_bad_block);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

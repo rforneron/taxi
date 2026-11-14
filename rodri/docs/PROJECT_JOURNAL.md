@@ -42,3 +42,20 @@ Validation command:
 ```
 
 Result: all planned IDs T01-T06, R01-R06, M01-M07, and P01-P05 passed with Verilator 5.032. This is simulation evidence for the scenarios above, not a claim of exhaustive IEEE 802.3 compliance. Functional coverage instrumentation, more exhaustive negative-case enumeration, and additional parameter combinations remain future work.
+
+## 2026-11-14 - Unified testbench output
+
+Standardized the console output for all 11 selected PHY testbenches:
+
+- Added a test banner with the covered test IDs at the start of each testbench.
+- Added concise scenario metrics and a common `RESULT : PASS` footer.
+- Removed intermediate per-test PASS messages so each bench has one unambiguous final result.
+- Preserved `$fatal` failures and the existing runner behavior.
+
+Validation:
+
+```powershell
+.\rodri\tests\run_selected_phy_tests.ps1
+```
+
+Result: all 11 testbenches compiled and passed; each emitted one test banner and one `RESULT : PASS` footer.

@@ -105,6 +105,11 @@ module tb_phy_reset;
     endtask
 
     initial begin
+        $display("============================================================");
+        $display("TEST: PHY RESET (T01)");
+        $display("============================================================");
+        $display("");
+
         repeat (5) begin
             @(posedge tx_clk);
             #1ps;
@@ -159,7 +164,13 @@ module tb_phy_reset;
             $fatal(1, "T01: RX did not reacquire lock after reset release");
         end
 
-        $display("PASS T01: independent TX/RX reset and recovery");
+        $display("TX Valid Samples    : %0d", tx_valid_samples);
+        $display("RX Block Lock       : %0b", rx_block_lock);
+        $display("TX Bad Block        : %0b", tx_bad_block);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

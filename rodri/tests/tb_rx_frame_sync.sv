@@ -80,6 +80,11 @@ module tb_rx_frame_sync;
     );
 
     initial begin
+        $display("============================================================");
+        $display("TEST: RX FRAME SYNC (R02-R03)");
+        $display("============================================================");
+        $display("");
+
         repeat (3) begin
             @(posedge clk);
             #1ps;
@@ -111,8 +116,6 @@ module tb_rx_frame_sync;
         if (rx_block_lock !== 1'b1) begin
             $fatal(1, "Block lock did not assert on the 64th valid header");
         end
-        $display("PASS R02: block lock acquired after the configured valid-header count");
-
         // Sixteen consecutive invalid headers cause lock loss and bitslip.
         for (integer i = 0; i < INVALID_HEADERS_TO_UNLOCK; i = i + 1) begin
             serdes_rx_header_driver_inst.send_header(2'b00, 1'b1);
@@ -146,31 +149,15 @@ module tb_rx_frame_sync;
         if (rx_block_lock !== 1'b1 || lock_acquire_count != 2) begin
             $fatal(1, "Receiver did not reacquire block lock");
         end
-        $display("PASS R03: lock loss, bitslip, and lock reacquisition");
-
+        $display("Lock Acquisitions   : %0d", lock_acquire_count);
+        $display("Lock Losses         : %0d", lock_loss_count);
+        $display("Bitslips Generated  : %0d", bitslip_count);
+        $display("Bad Blocks Detected : %0d", bad_block_count);
+        $display("Current Block Lock : %0b", rx_block_lock);
         $display("");
         $display("============================================================");
-        $display("TEST: RX FRAME SYNC");
+        $display("RESULT : PASS");
         $display("============================================================");
-        $display("");
-        
-        $display("Lock Acquisitions      : %0d", lock_acquire_count);
-        
-        $display("Lock Losses           : %0d", lock_loss_count);
-        
-        $display("Bitslips Generated    : %0d", bitslip_count);
-      
-
-        $display("Bad Blocks Detected    : %0d", bad_block_count);
-
-       
-        $display("Current Block Lock    : %0b", rx_block_lock);
-        $display("");
-
-        $display("============================================================");
-        $display("PASS: RX frame sync acquisition, loss, bitslip, and recovery");
-        $display("============================================================");
-        $display("");
         $finish;
     end
 

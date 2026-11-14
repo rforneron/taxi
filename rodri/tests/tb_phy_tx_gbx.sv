@@ -135,6 +135,11 @@ module tb_phy_tx_gbx;
     endtask
 
     initial begin
+        $display("============================================================");
+        $display("TEST: TX GEARBOX AND VALID GATING (T06, M07)");
+        $display("============================================================");
+        $display("");
+
         repeat (5) begin
             @(posedge clk);
             #1ps;
@@ -180,8 +185,14 @@ module tb_phy_tx_gbx;
                 write_count, read_count);
         end
 
-        $display("PASS T06: gearbox mode preserves valid data and suppresses invalid cycles");
-        $display("PASS M07: gearbox sync, request, stall, and SERDES valid alignment");
+        $display("Input Cycles        : %0d", 40);
+        $display("Valid Input Blocks  : %0d", write_count);
+        $display("Output Blocks       : %0d", read_count);
+        $display("Invalid Cycles      : %0d", 10);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

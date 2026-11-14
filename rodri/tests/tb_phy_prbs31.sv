@@ -127,6 +127,11 @@ module tb_phy_prbs31;
     );
 
     initial begin
+        $display("============================================================");
+        $display("TEST: PRBS31 TX/RX AND PHASE CONTROL (P01-P04)");
+        $display("============================================================");
+        $display("");
+
         rx_error_mask[HDR_W+5] = 1'b1;
 
         repeat (5) begin
@@ -159,7 +164,6 @@ module tb_phy_prbs31;
         @(negedge clk);
         cfg_tx_prbs31_enable = 1'b0;
         tx_reference_advance = 1'b0;
-        $display("PASS P01: TX PRBS31 matches independent reference");
 
         // P02: feed a known sequence to the RX checker and require zero errors.
         @(negedge clk);
@@ -173,8 +177,6 @@ module tb_phy_prbs31;
                     rx_error_count);
             end
         end
-        $display("PASS P02: RX PRBS31 clean sequence has zero errors");
-
         // P03: inject one reproducible data-bit error and observe the checker.
         error_count_seen = '0;
         @(negedge clk);
@@ -193,8 +195,6 @@ module tb_phy_prbs31;
         if (error_count_seen == 0) begin
             $fatal(1, "P03: RX PRBS checker did not detect the injected bit error");
         end
-        $display("PASS P03: injected PRBS31 error detected (count %0d)", error_count_seen);
-
         // P04: disabling PRBS freezes its reference phase; reset while disabled
         // must not corrupt the held phase, and clean checking resumes on re-enable.
         @(negedge clk);
@@ -241,8 +241,15 @@ module tb_phy_prbs31;
             end
         end
 
-        $display("PASS P04: disable/re-enable and disabled reset preserve PRBS phase");
-        $display("PASS: selected PRBS31 tests completed");
+        $display("TX PRBS Words Checked : %0d", 40);
+        $display("RX Clean Words Checked: %0d", 40);
+        $display("Injected Error Count  : %0d", error_count_seen);
+        $display("Phase Resume Words    : %0d", 12);
+        $display("RX Error Count        : %0d", rx_error_count);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

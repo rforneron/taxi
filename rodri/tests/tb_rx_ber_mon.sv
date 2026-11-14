@@ -74,6 +74,11 @@ module tb_rx_ber_mon;
     endtask
 
     initial begin
+        $display("============================================================");
+        $display("TEST: RX BER MONITOR (M01-M02)");
+        $display("============================================================");
+        $display("");
+
         repeat (5) begin
             @(posedge clk);
             #1ps;
@@ -121,9 +126,13 @@ module tb_rx_ber_mon;
             $fatal(1, "M02: High BER did not clear after a clean window");
         end
 
-        $display("PASS M01: 15/16 invalid-header threshold and valid gating");
-        $display("PASS M02: High BER clears after a clean window");
-
+        $display("Invalid Header Threshold : %0d", 16);
+        $display("Error Window Cycles      : %0d", COUNT_125US);
+        $display("RX High BER After Clean  : %0b", rx_high_ber);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

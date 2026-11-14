@@ -20,6 +20,7 @@ module tb_rx_watchdog;
 
     logic serdes_rx_reset_req;
     logic rx_status;
+    logic reset_request_seen = 1'b0;
 
     always #3.2ns clk = ~clk;
 
@@ -63,6 +64,10 @@ module tb_rx_watchdog;
     // =====================================================
 
     initial begin
+        $display("============================================================");
+        $display("TEST: RX WATCHDOG (M03-M04)");
+        $display("============================================================");
+        $display("");
 
         rx_bad_block      = 0;
         rx_sequence_error = 0;
@@ -111,7 +116,6 @@ module tb_rx_watchdog;
             $fatal(1,
                 "rx_status never asserted");
         end
-        $display("PASS M03: watchdog asserts healthy status after consecutive good windows");
 
         // M04: loss of lock clears status; persistent bad windows request a reset.
         @(negedge clk);
@@ -127,42 +131,25 @@ module tb_rx_watchdog;
         serdes_rx_hdr = 2'b10;
         serdes_rx_hdr_valid = 1'b1;
 
-        begin
-            logic reset_request_seen;
-            reset_request_seen = 1'b0;
-            for (integer cycle = 0; cycle < 20*(COUNT_125US+1); cycle = cycle + 1) begin
-                @(posedge clk);
-                #1ps;
-                if (serdes_rx_reset_req) begin
-                    reset_request_seen = 1'b1;
-                end
-            end
-            if (!reset_request_seen) begin
-                $fatal(1, "M04: persistent unhealthy windows did not request an RX reset");
+        for (integer cycle = 0; cycle < 20*(COUNT_125US+1); cycle = cycle + 1) begin
+            @(posedge clk);
+            #1ps;
+            if (serdes_rx_reset_req) begin
+                reset_request_seen = 1'b1;
             end
         end
-        $display("PASS M04: unhealthy windows clear status and request an RX reset");
+        if (!reset_request_seen) begin
+            $fatal(1, "M04: persistent unhealthy windows did not request an RX reset");
+        end
 
-        // -------------------------------------------------
-        // REPORT
-        // -------------------------------------------------
-
-        $display("");
-        $display("============================================================");
-        $display("TEST: RX WATCHDOG");
-        $display("============================================================");
-        $display("");
-
-        $display("Block Lock         : %0b", rx_block_lock);
-        $display("RX Status          : %0b", rx_status);
-        $display("Reset Request      : %0b", serdes_rx_reset_req);
+        $display("Block Lock          : %0b", rx_block_lock);
+        $display("RX Status           : %0b", rx_status);
+        $display("Reset Request Seen  : %0b", reset_request_seen);
 
         $display("");
-
         $display("============================================================");
         $display("RESULT : PASS");
         $display("============================================================");
-        $display("");
 
         $finish;
 

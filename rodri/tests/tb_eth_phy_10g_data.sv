@@ -337,6 +337,11 @@ module tb_eth_phy_10g_data;
 
     initial begin
         configure_expected_frame();
+        $display("============================================================");
+        $display("TEST: PHY DATA PATH (T02-T05, R01)");
+        $display("============================================================");
+        $display("");
+
         clear_serdes_capture = 1'b1;
         clear_xgmii_capture = 1'b1;
 
@@ -390,9 +395,6 @@ module tb_eth_phy_10g_data;
             $fatal(1, "TX reported a bad block for a legal XGMII frame");
         end
 
-        $display("PASS T02: TX data-block headers and valid XGMII frame");
-        $display("PASS T03: TX control-block headers for START/TERM frame");
-
       
         // Test de Recepcion
         use_internal_loopback = 1'b0;
@@ -414,7 +416,6 @@ module tb_eth_phy_10g_data;
         if (xgmii_capture_overflow) begin
             $fatal(1, "XGMII RX monitor sample buffer overflowed during replay");
         end
-        $display("PASS R01: SERDES replay reconstructs the expected XGMII frame");
         
         // Test de loopback interno del DUT
         enable_xgmii_capture = 1'b0;
@@ -451,8 +452,6 @@ module tb_eth_phy_10g_data;
         if (rx_bad_block || rx_sequence_error || tx_bad_block) begin
             $fatal(1, "Top reported a block or sequence error in the loopback test");
         end
-        $display("PASS R01: integrated TX-to-RX loopback reconstructs the frame");
-
         // T04: verify several payload patterns through the complete scrambled path.
         for (integer pattern_id = 0; pattern_id < 5; pattern_id = pattern_id + 1) begin
             configure_payload_pattern(pattern_id);
@@ -472,40 +471,27 @@ module tb_eth_phy_10g_data;
             end
             check_received_frame($sformatf("T04 payload pattern %0d", pattern_id));
         end
-        $display("PASS T04: zero, ones, alternating, counter, and deterministic pseudo-random payloads");
-
         // T05: illegal XGMII control symbols must be reported by the encoder.
         xgmii_tx_driver_inst.send_word(64'h07070707AA070707, 8'hFF);
         if (!tx_bad_block) begin
             $fatal(1, "T05: encoder did not flag an illegal XGMII control symbol");
         end
         xgmii_tx_driver_inst.send_idle_words(2);
-        $display("PASS T05: illegal XGMII control symbol raises tx_bad_block");
-
         
-        $display("");
-        $display("============================================================");
-        $display("TEST: ETH PHY 10G DATA PATH");
-        $display("============================================================");
-        $display("");
-
-        $display("[TX ENCODING]");
-        $display("------------------------------------------------------------");
+        $display("Test IDs             : T02, T03, T04, T05, R01");
         $display("SERDES Blocks Captured : %0d", serdes_sample_count);
         $display("Data Blocks            : %0d", data_header_count);
         $display("Control Blocks         : %0d", control_header_count);
         $display("TX Bad Block           : %0b", tx_bad_block);
         $display("");
 
-        $display("[RX REPLAY]");
-        $display("------------------------------------------------------------");
         $display("XGMII Samples          : %0d", xgmii_sample_count);
         $display("RX Bad Block           : %0b", rx_bad_block);
         $display("RX Sequence Error      : %0b", rx_sequence_error);
         $display("");
 
-        $display("[END TO END LOOPBACK]");
-        $display("------------------------------------------------------------");
+        $display("Payload Patterns Tested: %0d", 5);
+        $display("Illegal XGMII Detected : %0b", tx_bad_block);
         $display("RX Block Lock          : %0b", rx_block_lock);
         $display("RX Status              : %0b", rx_status);
         $display("RX Error Count         : %0d", rx_error_count);
@@ -515,7 +501,6 @@ module tb_eth_phy_10g_data;
         $display("============================================================");
         $display("RESULT : PASS");
         $display("============================================================");
-        $display("");
         $finish;
     end
 

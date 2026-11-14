@@ -72,6 +72,11 @@ module tb_phy_prbs_loopback;
     );
 
     initial begin
+        $display("============================================================");
+        $display("TEST: PRBS31 TX/RX LOOPBACK (M05)");
+        $display("============================================================");
+        $display("");
+
         repeat (5) begin
             @(posedge clk);
             #1ps;
@@ -100,7 +105,14 @@ module tb_phy_prbs_loopback;
             $fatal(1, "M05: PRBS loopback ended with invalid SERDES output");
         end
 
-        $display("PASS M05: integrated TX PRBS31 stream is accepted by the RX checker");
+        $display("PRBS Blocks Checked : %0d", 100);
+        $display("RX Error Count      : %0d", rx_error_count);
+        $display("TX Data Valid       : %0b", serdes_tx_data_valid);
+        $display("TX Header Valid     : %0b", serdes_tx_hdr_valid);
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 

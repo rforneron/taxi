@@ -35,10 +35,21 @@ module tb_phy_configs;
     );
 
     initial begin
+        $display("============================================================");
+        $display("TEST: PHY WIDTH AND BIT REVERSE (R06, M06)");
+        $display("============================================================");
+        $display("");
+
         wait (done_32 && done_64);
-        $display("PASS R06: XGMII frame loopback works at DATA_W=32 and DATA_W=64");
         wait (done_reverse);
-        $display("PASS M06: scrambled end-to-end loopback works with bit reversal enabled");
+        $display("DATA_W Configurations : 32, 64");
+        $display("Bit Reverse           : Enabled");
+        $display("Scrambler             : Enabled");
+        $display("Loopback Result       : Passed");
+        $display("");
+        $display("============================================================");
+        $display("RESULT : PASS");
+        $display("============================================================");
         $finish;
     end
 
