@@ -59,3 +59,23 @@ Validation:
 ```
 
 Result: all 11 testbenches compiled and passed; each emitted one test banner and one `RESULT : PASS` footer.
+
+## 2026-11-14 - MAC 10G DUT architecture
+
+Added `../DUT TAXI_ETH_MAC_10G.md` as an architectural baseline for `taxi_eth_mac_10g`, covering its interfaces, clocks/resets, hierarchy, TX/RX datapaths, optional features, FSMs, and verification risks. No Test Plan or verification components were created.
+
+## 2026-11-14 - MAC 10G DUT source-backed corrections
+
+Updated `../DUT TAXI_ETH_MAC_10G.md` against the MAC RTL to clarify that:
+
+- Timestamp metadata (`PTP_TS_EN`) is independently selectable from the PTP time-distribution leaf (`PTP_TS_EN && PTP_TD_EN`); timestamp outputs are passthrough when the leaf is absent.
+- RX AXI-Stream backpressure is unsupported (`tready` is not consumed, including by the top-level MAC-control RX configuration).
+- `stat_rx_err_bad_block` remains zero in both 32-bit and 64-bit RX variants.
+- Gearbox control is TX request/stall/sync plus RX `xgmii_rx_valid` gating when its respective enable is set; RX has no separate request/sync interface.
+- 31B and 31D are referred to as annexes per RTL comments, PFC is noted alongside IEEE 802.1Qbb, and standard-edition/PTP Clause 90 caveats are explicit.
+
+## 2026-11-14 - MAC 10G verification plan baseline
+
+Created `../docs/TEST_PLAN_MAC_10G.xlsx` with the DUT Overview, Test Plan, Coverage Matrix, IEEE Traceability Matrix, and Verification Status worksheets. The Test Plan contains 49 source-scoped MAC cases using the requested nine columns and five test categories. All cases are marked planned/not implemented; no MAC tests were implemented or executed.
+
+The plan explicitly excludes PHY PRBS31/PCS/PMD/SERDES, general VLAN tag manipulation, PTP event-message processing, and RX `tready` backpressure as unsupported/out of scope. IEEE mappings are conservative and edition-dependent where noted. Updated the DUT document with the workbook reference. The existing PHY workbook was not modified; no testbench, driver, or RTL code was added.
