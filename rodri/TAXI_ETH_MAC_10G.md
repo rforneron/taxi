@@ -1,4 +1,4 @@
-# DUT TAXI_ETH_MAC_10G
+# TAXI_ETH_MAC_10G
 
 # Objetivo
 

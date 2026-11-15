@@ -21,7 +21,7 @@ $verilator = "$verilatorBin/verilator"
 $rtl = "$linuxRepositoryRoot/src/eth/rtl/taxi_eth_phy_10g_rx_frame_sync.sv"
 $driver = "$linuxRepositoryRoot/rodri/agents/serdes_rx_header_driver.sv"
 $monitor = "$linuxRepositoryRoot/rodri/agents/rx_status_monitor.sv"
-$testbench = "$linuxRepositoryRoot/rodri/tests/tb_rx_frame_sync.sv"
+$testbench = "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_rx_frame_sync.sv"
 
 & wsl.exe -d Ubuntu -- env "VERILATOR_ROOT=$verilatorRoot" "PATH=$wslPath" $verilator `
     --binary --timing --top-module tb_rx_frame_sync --Mdir $buildDirectory `

@@ -54,7 +54,7 @@ $testCases = @(
     @{
         Name = 't01-reset'
         Top = 'tb_phy_reset'
-        Sources = @("$linuxRepositoryRoot/rodri/tests/tb_phy_reset.sv")
+        Sources = @("$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_reset.sv")
     }
     @{
         Name = 't02-t03-r01-data'
@@ -64,7 +64,7 @@ $testCases = @(
             "$linuxRepositoryRoot/rodri/agents/serdes_rx_data_driver.sv"
             "$linuxRepositoryRoot/rodri/agents/serdes_tx_monitor.sv"
             "$linuxRepositoryRoot/rodri/agents/xgmii_rx_monitor.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_eth_phy_10g_data.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_eth_phy_10g_data.sv"
         )
     }
     @{
@@ -73,7 +73,7 @@ $testCases = @(
         Sources = @(
             "$linuxRepositoryRoot/rodri/agents/serdes_rx_header_driver.sv"
             "$linuxRepositoryRoot/rodri/agents/rx_status_monitor.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_rx_frame_sync.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_rx_frame_sync.sv"
         )
     }
     @{
@@ -81,7 +81,7 @@ $testCases = @(
         Top = 'tb_rx_ber_mon'
         Sources = @(
             "$linuxRepositoryRoot/rodri/agents/serdes_rx_header_driver.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_rx_ber_mon.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_rx_ber_mon.sv"
         )
     }
     @{
@@ -89,7 +89,7 @@ $testCases = @(
         Top = 'tb_rx_watchdog'
         Sources = @(
             "$linuxRepositoryRoot/rodri/agents/serdes_rx_header_driver.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_rx_watchdog.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_rx_watchdog.sv"
         )
     }
     @{
@@ -97,36 +97,36 @@ $testCases = @(
         Top = 'tb_phy_prbs31'
         Sources = @(
             "$linuxRepositoryRoot/rodri/agents/prbs31_agent.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_phy_prbs31.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_prbs31.sv"
         )
     }
     @{
         Name = 'm05-prbs-loopback'
         Top = 'tb_phy_prbs_loopback'
-        Sources = @("$linuxRepositoryRoot/rodri/tests/tb_phy_prbs_loopback.sv")
+        Sources = @("$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_prbs_loopback.sv")
     }
     @{
         Name = 'p05-prbs-width'
         Top = 'tb_phy_prbs_width'
         Sources = @(
             "$linuxRepositoryRoot/rodri/agents/prbs31_agent.sv"
-            "$linuxRepositoryRoot/rodri/tests/tb_phy_prbs_width.sv"
+            "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_prbs_width.sv"
         )
     }
     @{
         Name = 'r04-r05-rx-extended'
         Top = 'tb_phy_rx_extended'
-        Sources = @("$linuxRepositoryRoot/rodri/tests/tb_phy_rx_extended.sv")
+        Sources = @("$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_rx_extended.sv")
     }
     @{
         Name = 'r06-m06-configs'
         Top = 'tb_phy_configs'
-        Sources = @("$linuxRepositoryRoot/rodri/tests/tb_phy_configs.sv")
+        Sources = @("$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_configs.sv")
     }
     @{
         Name = 't06-m07-tx-gbx'
         Top = 'tb_phy_tx_gbx'
-        Sources = @("$linuxRepositoryRoot/rodri/tests/tb_phy_tx_gbx.sv")
+        Sources = @("$linuxRepositoryRoot/rodri/tests_eth_phy/tb_phy_tx_gbx.sv")
     }
 )
 

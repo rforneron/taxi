@@ -1,4 +1,4 @@
-# DUT TAXI_ETH_PHY_10G
+# TAXI_ETH_PHY_10G
 
 
 # Objetivo

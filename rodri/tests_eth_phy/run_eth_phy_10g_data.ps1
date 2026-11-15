@@ -55,7 +55,7 @@ $driverSources = @(
     "$linuxRepositoryRoot/rodri/agents/serdes_rx_data_driver.sv"
     "$linuxRepositoryRoot/rodri/agents/serdes_tx_monitor.sv"
     "$linuxRepositoryRoot/rodri/agents/xgmii_rx_monitor.sv"
-    "$linuxRepositoryRoot/rodri/tests/tb_eth_phy_10g_data.sv"
+    "$linuxRepositoryRoot/rodri/tests_eth_phy/tb_eth_phy_10g_data.sv"
 )
 
 $verilator = "$verilatorBin/verilator"
