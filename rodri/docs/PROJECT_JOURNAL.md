@@ -79,3 +79,38 @@ Updated `../DUT TAXI_ETH_MAC_10G.md` against the MAC RTL to clarify that:
 Created `../docs/TEST_PLAN_MAC_10G.xlsx` with the DUT Overview, Test Plan, Coverage Matrix, IEEE Traceability Matrix, and Verification Status worksheets. The Test Plan contains 49 source-scoped MAC cases using the requested nine columns and five test categories. All cases are marked planned/not implemented; no MAC tests were implemented or executed.
 
 The plan explicitly excludes PHY PRBS31/PCS/PMD/SERDES, general VLAN tag manipulation, PTP event-message processing, and RX `tready` backpressure as unsupported/out of scope. IEEE mappings are conservative and edition-dependent where noted. Updated the DUT document with the workbook reference. The existing PHY workbook was not modified; no testbench, driver, or RTL code was added.
+
+## 2026-11-14 - MAC 10G basic verification environment
+
+Added a minimal MAC-only SystemVerilog verification environment for
+`MAC-BAS-01` through `MAC-BAS-03`. Reusable components are stored under
+`../agents/`; `../tests_eth_mac/` contains only the testbench and runner:
+
+- `../agents/mac_frame_pkg.sv`: Ethernet CRC-32 reference implementation.
+- `../agents/axi_frame_driver.sv`: configurable AXI-Stream frame and tag driver.
+- `../agents/xgmii_frame_monitor.sv`: TX frame capture and preamble/SFD reconstruction.
+- `../agents/mac_frame_scoreboard.sv`: TX/RX payload, FCS, status, and completion-tag checks.
+- `../tests_eth_mac/tb_mac_basics.sv`: independent reset, TX, and RX directed scenarios.
+- `../tests_eth_mac/run_mac_basics.ps1`: Verilator runner for DATA_W=32 and 64.
+
+No files under `../tests_eth_phy/` were modified or reused directly; the
+existing PHY components operate at a different verification boundary. The
+MAC Cocotb testbench was used only as an interface reference. The component
+reuse audit, final data flow, execution scope, and configuration caveat are
+documented in [VERIFICATION_ARCHITECTURE_MAC.md](./VERIFICATION_ARCHITECTURE_MAC.md).
+
+Validation command:
+
+```powershell
+.\rodri\tests_eth_mac\run_mac_basics.ps1
+```
+
+Result: MAC-BAS-01, MAC-BAS-02, and MAC-BAS-03 passed at DATA_W=32 and 64 with
+Verilator 5.032. The workbook records these executions; broader test-plan
+coverage and functional coverage instrumentation remain open.
+
+The baseline uncovered a TX completion configuration risk: with PTP disabled
+and default `PTP_TS_FMT_TOD=1`, the RTL does not assert completion valid. The
+testbench explicitly selects `PTP_TS_FMT_TOD=0` and `PTP_TS_W=96` to exercise
+non-PTP packet completion. The default combination remains unverified and
+requires RTL triage.
