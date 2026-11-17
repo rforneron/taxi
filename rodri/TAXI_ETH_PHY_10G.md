@@ -153,13 +153,15 @@ flowchart LR
 
     RXIF --> FS
 
-    RXIF --> BER
-
-    RXIF --> WD
-
     RXIF --> DEC
 
     DEC --> XGMII_RX
+
+    RXIF --> WD
+
+    RXIF --> BER
+
+    
 ```
 ---
 
